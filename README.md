@@ -15,13 +15,15 @@ The MCU manages all the things related with timming, pressing and relays, and in
 
 Now, the timming to up/down the blind are configured. Remind that this behaviour is managed by the MCU, not any code in this repository related with that.
 
-# First flash
-This comment in Tasmota issues is clarify:
+# Compilation
+Copy the file config_h to config.h, change your information (WiFi network and MQTT) and compile using platform.io
 
-NOTE that the user was wrong, the GPIO for flash is SW, close to GND (both soldered). The pinout "RES1" is not required.
+# First flash
+This comment in Tasmota issues is very clear:
+
+NOTE that the user was wrong, the GPIO0 for flash is SW, close to GND (both soldered). The pinout "RES1" is not required.
 
 https://github.com/arendst/Tasmota/issues/5059#issuecomment-546736419
 
 # Firmware update
-It is in URL: http://<ip>:8080/update
-
+When you first the first time, you can use this URL to do the next: http://<ip>:8080/update
