@@ -27,3 +27,9 @@ https://github.com/arendst/Tasmota/issues/5059#issuecomment-546736419
 
 # Firmware update
 When you first the first time, you can use this URL to do the next: http://<ip>:8080/update
+
+# TODO List
+- [ ] Integration with BlitzWolf SS4 (WIP)
+- [ ] Integration with HomeAssistant
+- [ ] Code clean (hehe)
+- [ ] Integration of Sonoff Dual R2

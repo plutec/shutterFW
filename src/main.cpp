@@ -1,18 +1,21 @@
 #include <ESP8266WiFi.h>
 #include <ArduinoOTA.h>
 #include "PubSubClient.h"
-#include <Espalexa.h>
+#include "Espalexa.h"
 
 #include "config.h"  // Sustituir con datos de vuestra red
 #include "WiFi_Utils.hpp"
 //#include <WiFiUdp.h> //TODO Borrar, ya ha hecho su trabajo
 #include <ESP8266HTTPUpdateServer.h>
 #include <ESP8266WebServer.h>
+//#include "HomeAssistant.h"
 
 #define PAYLOAD_STOP "BLINDSTOP"
 #define PAYLOAD_OPEN "BLINDOPEN"
 #define PAYLOAD_CLOSE "BLINDCLOSE"
-#define HOMEASSISTANT_SUPPORT 1
+#define HOMEASSISTANT_SUPPORT
+
+
 //MQTT INFO
 /*
 availability_topic: "tele/persiana_despacho/LWT" (Online/Offline)
@@ -39,8 +42,12 @@ position_closed: 0 -> Clear
 #define DEBUG //Comment to remove debug via MQTT
 #define DEBUG_TOPIC "persiana/debug"
 
-// void debug_udp(const char *msg); //OLD CODE
 void mqtt_callback(char* topic, byte* payload, unsigned int length);
+
+#ifdef BW_SS4
+uint8 current_position = 100; //TODO. At startup it takes 100 position (totally open). It can update later from retained message in MQTT or from Flash memory
+unsigned long milliseconds_per_percent = TIMEOPEN*10; // Time take to open or close 1 percent (in milliseconds).
+#endif
 
 /*
 - Los botones activan la MCU y mandan el activo/inactivo a los relés
@@ -58,16 +65,13 @@ PubSubClient mqtt(espClient);
 ESP8266WebServer httpServer(8080);
 ESP8266HTTPUpdateServer httpUpdater;
 Espalexa espalexa;
+//HomeAssistant ha;
 
 EspalexaDevice* device;
 
-//ALEXA CALLBACKS
-//new callback type, contains device pointer
-//void alphaChanged(EspalexaDevice* dev);
-//void betaChanged(EspalexaDevice* dev);
+//ALEXA CALLBACK
 void percentBlind(uint8_t value);
-//you can now use one callback for multiple devices
-//void deltaOrEpsilonChanged(EspalexaDevice* dev);
+
 char subscribe_topic[64];
 
 /*
@@ -88,25 +92,15 @@ PASOS
 */
 
 void reconnect_mqtt() {
-  // Loop until we're reconnected
   while (!mqtt.connected()) {
-    //Serial.print("Attempting MQTT connection...");
-    // Create a random client ID
-    //String clientId = "ESP8266Client-";
-    //clientId += String(random(0xffff), HEX);
-    // Attempt to connect
     if (mqtt.connect(hostname)) {
-      //Serial.println("connected");
-      // Once connected, publish an announcement...
       #ifdef DEBUG
       mqtt.publish(DEBUG_TOPIC, "Conectado de nuevo");
+      mqtt.publish(DEBUG_TOPIC, hostname);
       #endif
-      mqtt.publish("tele/persiana_despacho/LWT", "Online", true); // Retained
-      delay(200);
-      mqtt.publish("homeassistant/cover/persiana_despacho/config", json_homeassistant, true);  // Retained
-  
+      //mqtt.publish("tele/persiana_despacho/LWT", "Online", true); // Retained TODO mover a HA??
       //subscribe to:
-      // cmnd/persiana_despacho/shutterposition
+      // cmnd/<device_name>/shutterposition
       mqtt.subscribe(subscribe_topic);
     } else {
       // Wait 5 seconds before retrying
@@ -118,9 +112,19 @@ void reconnect_mqtt() {
 
 void setup()
 {
-
+  #ifdef KINGART_Q4
+  Serial.begin(19200);
+  #endif
   Serial.begin(19200);
 
+  #ifdef BW_SS4
+   pinMode(RELAY1, OUTPUT);
+   pinMode(RELAY2, OUTPUT);
+   pinMode(LED, OUTPUT);
+   digitalWrite(4, HIGH);
+   //pinMode(BUTTON1, INPUT);
+   //pinMode(BUTTON2, INPUT);
+  #endif
   ConnectWiFi_STA(!use_dhcp);
   
   mqtt.setServer(mqttServer, mqttPort);
@@ -136,47 +140,105 @@ void setup()
 
   device = new EspalexaDevice(ALEXA_NAME, percentBlind); //you can also create the Device objects yourself like here
   espalexa.addDevice(device); //and then add them
-  //device->setValue(100); //this allows you to e.g. update their state value at any time!
+  #ifdef BW_SS4
+  device->setValue(current_position); //this allows you to e.g. update their state value at any time!
+  #endif
 
   espalexa.begin();
 
   sprintf(subscribe_topic, "cmnd/%s/shutterposition", hostname);
 
+  //Probamos el HomeAssistant class
+  //ha = HomeAssistant(&mqtt);
+  
 }
 
 void loop() 
 {
-
   httpServer.handleClient();
   if (!mqtt.connected()) {
     reconnect_mqtt();
   }
   mqtt.loop();
-  
-  if (Serial.available()>0) {
-    String st = Serial.readStringUntil('\n');
-    st[st.length()-1] = '\0';
+  #ifdef KINGART_Q4
+    if (Serial.available()>0) {
+      String st = Serial.readStringUntil('\n');
+      st[st.length()-1] = '\0';
 
-    #ifdef DEBUG
-    mqtt.publish(DEBUG_TOPIC, st.c_str());
-    #endif
-  } 
+      #ifdef DEBUG
+      mqtt.publish(DEBUG_TOPIC, st.c_str());
+      #endif
+    }
+  #endif
   espalexa.loop();
+  /*ha.SendDiscovery();
+  delay(500);*/
+  /*digitalWrite(RELAY1, HIGH);
+  delay(1000);
+  digitalWrite(RELAY1, LOW);*/
 }
 
 void moveToPosition(uint8_t percent) {
   char str[80];
-  sprintf(str, "AT+UPDATE=\"sequence\":\"1572536577552\",\"setclose\":%d\x1b", percent); //TODO Poner ese valor aleatorio, si fuera necesario...
-  Serial.print(str);
-  Serial.flush();
   #ifdef DEBUG
-  sprintf(str, "Valor cambiado a porcentaje %u", percent);
-  mqtt.publish(DEBUG_TOPIC, str);
+    sprintf(str, "Value going to change to percent %u", percent);
+    mqtt.publish(DEBUG_TOPIC, str);
+    delay(50);
   #endif
+  #ifdef KINGART_Q4
+    sprintf(str, "AT+UPDATE=\"sequence\":\"1572536577552\",\"setclose\":%d\x1b", percent); //TODO Poner ese valor aleatorio, si fuera necesario...
+    Serial.print(str);
+    Serial.flush();
+  #endif
+  #ifdef BW_SS4
+    //Estoy en la posicion X
+    if (current_position == percent) {
+      //Do nothing
+    } else if (current_position > percent) { // We need to close
+      #ifdef DEBUG
+        mqtt.publish(DEBUG_TOPIC, "Close...");
+        delay(50);
+      #endif
+      //RELAY1 OFF, RELAY2 ON
+      unsigned long diff = (current_position - percent)*milliseconds_per_percent;
+      sprintf(str, "El tiempo es de... %lu", diff);
+      mqtt.publish(DEBUG_TOPIC, str);
+        delay(50);
+      // First, assure RELAY1 is stopped
+      digitalWrite(RELAY1, LOW);
+      digitalWrite(RELAY2, HIGH);
+      delay(diff);
+      digitalWrite(RELAY2, LOW);
+      /*digitalWrite(LED, LOW);
+      delayMicroseconds(diff);
+      digitalWrite(LED, HIGH);*/
+    } else if (current_position < percent) { // We need to open
+      #ifdef DEBUG
+        mqtt.publish(DEBUG_TOPIC, "Open...");
+        delay(50);
+      #endif
+      //RELAY1 ON, RELAY2 OFF
+      unsigned long diff = (percent-current_position)*milliseconds_per_percent;
+      sprintf(str, "El tiempo es de... %lu", diff);
+      mqtt.publish(DEBUG_TOPIC, str);
+      delay(50);
+      // First, assure RELAY2 is stopped
+      digitalWrite(RELAY2, LOW);
+      digitalWrite(RELAY1, HIGH);
+      delay(diff);
+      digitalWrite(RELAY1, LOW);
+      /*digitalWrite(LED, LOW);
+      delayMicroseconds(diff);
+      digitalWrite(LED, HIGH);*/
+    }
+    current_position = percent;
+  #endif
+
 }
 
 void mqtt_callback(char* topic, byte* payload, unsigned int length) {
-  
+  mqtt.publish(DEBUG_TOPIC, "Callback msg...");
+  delay(50);
   String messageTemp;
   for (unsigned int i=0; i < length; i++) {
     messageTemp += (char)payload[i];
@@ -186,66 +248,19 @@ void mqtt_callback(char* topic, byte* payload, unsigned int length) {
   #ifdef DEBUG
   mqtt.publish(DEBUG_TOPIC, "Callback msg:");
   mqtt.publish(DEBUG_TOPIC, messageTemp.c_str());
+  delay(50);
   #endif
   int percent = atoi(messageTemp.c_str());
   moveToPosition(percent);
-  //Serial.print("AT+UPDATE=\"sequence\":\"1572536577552\",\"setclose\":0");
-  //Serial.flush();
-  //Topic: persiana/action
-  /*if (messageTemp.equals("UP")) {
-    //Serial.write("AT+UPDATE=\"switch\":\"on\",\"setclose\":0\x1b");
-    Serial.print("AT+UPDATE=\"sequence\":\"1572536577552\",\"setclose\":0");
-    Serial.flush();
-    mqtt.publish(DEBUG_TOPIC, "Manda subir");
-  } else if (messageTemp.equals("DW")) {
-    //Serial.write("AT+UPDATE=\"switch\":\"off\",\"setclose\":100\x1b");
-    //Serial.print("AT+UPDATE=\"sequence\":\"%d%03d\",\"setclose\":%d", (157253, millis()%1000, 100));
-    Serial.print("AT+UPDATE=\"sequence\":\"1572536577552\",\"setclose\":100");
-    Serial.flush();
-    mqtt.publish(DEBUG_TOPIC, "Manda bajar");
-  }*/
 }
 
 
 
 void percentBlind(uint8_t value) {
+  #ifdef DEBUG
+  mqtt.publish(DEBUG_TOPIC, "mueve el callback de alexa");
+  #endif
   uint percent = 100-(value*100)/255; //100=open; 0=close
   //char cadenica[512];
   moveToPosition(percent);
-}
-
-/***** HOMEASSISTANT *****/
-// https://www.home-assistant.io/docs/mqtt/discovery/
-
-/*
-Configuration topic: homeassistant/cover/despacho_giu/config
-State topic: homeassistant/cover/despacho_giu/state
-Command topic: homeassistant/cover/despacho_giu/set
-*/
-
-/**
- * Cuando abre: state_topic -> state_opening
- * Cuando termina de abrir: state_topic -> state_open
- * Cuando cierra: state_topic -> state_closing
- * Cuando termina de cerrar: state_topic -> state_close
- * Porcentajes: (position_topic)
- * 0 -> Closed
- * 100 -> Open
- * 
- * 
- * 
- * */
-
-void create_json_ha() {
-  StaticJsonDocument<200> doc;
-
-  // StaticJsonObject allocates memory on the stack, it can be
-  // replaced by DynamicJsonDocument which allocates in the heap.
-  //
-  // DynamicJsonDocument  doc(200);
-
-  // Add values in the document
-  //
-  doc["sensor"] = "gps";
-  doc["time"] = 1351824120;
 }
