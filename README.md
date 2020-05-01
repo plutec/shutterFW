@@ -1,8 +1,27 @@
-# Calcular tiempos de subida/bajada
-- Bajar la persiana del todo.
-- Pulsar el botón de parada (central) durante 4 segundos. Los 3 botones empezarán a parpadear.
-- Pulsar el botón de subida. Cuando la persiana llegue arriba, pulsamos nuevamente el botón de subida. Con esto quedará configurado el tiempo de subida y bajada de la persiana.
+# Firmware for KingArt Q4 Curtain
+This device is special because it has a microcontroler (Nuvoton, MCU from now) for leds and relays. The communication with the ESP8285 is via Serial port with AT commands.
 
-# FIRMWARE UPDATE
+I made this firmware for two main reason:
+- Tasmota doesn't manage right the MCU
+- Tasmota doesn't work fine with Alexa
+
+And here is the result of hours of frustration with Tasmota and reversing the behaviour of the device.
+
+# Calculate up/down times
+The MCU manages all the things related with timming, pressing and relays, and inform to the ESP via AT commands. To configure the timming do the next:
+- Lower the blind totally.
+- Press the middle button (stop) during 4 seconds. The 3 buttons start to blink.
+- Press the up button. When the blind reach the top, press again the up button.
+
+Now, the timming to up/down the blind are configured. Remind that this behaviour is managed by the MCU, not any code in this repository related with that.
+
+# First flash
+This comment in Tasmota issues is clarify:
+
+NOTE that the user was wrong, the GPIO for flash is SW, close to GND (both soldered). The pinout "RES1" is not required.
+
+https://github.com/arendst/Tasmota/issues/5059#issuecomment-546736419
+
+# Firmware update
 It is in URL: http://<ip>:8080/update
 
