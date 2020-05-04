@@ -1,11 +1,19 @@
-# Firmware for KingArt Q4 Curtain
+
+
+# Firmware curtains, blinds, shutters, ...
 This device is special because it has a microcontroler (Nuvoton, MCU from now) for leds and relays. The communication with the ESP8285 is via Serial port with AT commands.
 
 I made this firmware for two main reason:
 - Tasmota doesn't manage right the MCU
-- Tasmota doesn't work fine with Alexa
+- Tasmota doesn't work fine with Alexa (in any curtain mode)
 
 And here is the result of hours of frustration with Tasmota and reversing the behaviour of the device.
+
+# Supported devices
+Also, I reuse the same code for differents HW devices that I have:
+
+- KingArt
+- BlitzWolf SS4 (2 ways)
 
 # Calculate up/down times
 The MCU manages all the things related with timming, pressing and relays, and inform to the ESP via AT commands. To configure the timming do the next:
@@ -29,7 +37,7 @@ https://github.com/arendst/Tasmota/issues/5059#issuecomment-546736419
 When you first the first time, you can use this URL to do the next: http://<ip>:8080/update
 
 # TODO List
-- [ ] Integration with BlitzWolf SS4 (WIP)
+- [X] Integration with BlitzWolf SS4
 - [ ] Integration with HomeAssistant
 - [ ] Code clean (hehe)
 - [ ] Integration of Sonoff Dual R2

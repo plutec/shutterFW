@@ -155,3 +155,12 @@ Command topic: homeassistant/cover/despacho_giu/set
  * 
  * 
  * */
+
+
+/**
+ * Mandar status (cada 5 minutos)
+ * tele/persiana_patio/HASS_STATE {"Version":"8.2.0(tasmota)","BuildDateTime":"2020-03-20T14:45:23","Core":"STAGE","SDK":"2.2.2-dev(38a443e)","Module":"Sonoff Dual R2","RestartReason":"Software/System restart","Uptime":"3T06:00:14","WiFi LinkCount":2,"WiFi Downtime":"0T00:01:50","MqttCount":2,"BootCount":51,"SaveCount":886,"IPAddress":"192.168.0.114","RSSI":"80","LoadAvg":19}
+tele/persiana_patio/STATE {"Time":"2020-05-04T17:05:17","Uptime":"3T06:00:25","UptimeSec":280825,"Heap":26,"SleepMode":"Dynamic","Sleep":50,"LoadAvg":19,"MqttCount":2,"POWER1":"OFF","POWER2":"OFF","Wifi":{"AP":1,"SSId":"plutec_IoT","BSSId":"2A:E8:29:FE:75:F3","Channel":6,"RSSI":76,"Signal":-62,"LinkCount":2,"Downtime":"0T00:01:50"}}
+tele/persiana_patio/SENSOR {"Time":"2020-05-04T17:05:17","Switch1":"OFF","Switch2":"OFF","Shutter1":{"Position":98,"Direction":0,"Target":97}}
+
+*/
