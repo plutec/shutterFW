@@ -9,7 +9,7 @@
 //#include <WiFiUdp.h> //TODO Borrar, ya ha hecho su trabajo
 #include <ESP8266HTTPUpdateServer.h>
 #include <ESP8266WebServer.h>
-//#include "HomeAssistant.h"
+#include "HomeAssistant.h"
 
 #define PAYLOAD_STOP "BLINDSTOP"
 #define PAYLOAD_OPEN "BLINDOPEN"
@@ -44,22 +44,26 @@ position_open: 100 -> Clear
 position_closed: 0 -> Clear
 */
 
-struct storage{ 
-    uint percent = 0;
-    //char str[20] = "";
-} storage_struct;
+struct storage_struct{ 
+  bool new_values = false;
+  uint percent = 0;
+  char *ssid[32];
+  char *wifi_pass[64];
+};
+storage_struct storage;
 
 void save_eeprom_data() {
   uint addr = 0;
-  EEPROM.begin(sizeof(struct storage)); //bytes
-  EEPROM.put(addr,storage_struct);
+  EEPROM.begin(sizeof(storage_struct)); //bytes
+  EEPROM.put(addr, storage);
+  EEPROM.commit();
 }
 
-uint8_t load_eeprom_data() {
+void load_eeprom_data() {
   //Return only the percent of the shutter
   uint addr = 0;
-  EEPROM.begin(128); //bytes
-  EEPROM.get(addr, storage_struct);
+  //EEPROM.begin(sizeof(storage_struct)); //bytes
+  EEPROM.get(addr, storage);
 }
 
 
@@ -89,7 +93,9 @@ PubSubClient mqtt(espClient);
 ESP8266WebServer httpServer(8080);
 ESP8266HTTPUpdateServer httpUpdater;
 Espalexa espalexa;
-//HomeAssistant ha;
+#ifdef HOMEASSISTANT_SUPPORT
+HomeAssistant ha;
+#endif
 
 EspalexaDevice* device;
 
@@ -116,7 +122,8 @@ PASOS
 */
 
 void reconnect_mqtt() {
-  while (!mqtt.connected()) {
+  uint8_t count = 5;
+  while (!mqtt.connected() && count>0) {
     if (mqtt.connect(hostname)) {
       #ifdef DEBUG
       mqtt.publish(DEBUG_TOPIC, "Conectado de nuevo");
@@ -128,8 +135,9 @@ void reconnect_mqtt() {
       mqtt.subscribe(subscribe_topic);
     } else {
       // Wait 5 seconds before retrying
-      delay(5000);
+      delay(1000);
     }
+    count--;
   }
 }
 /*
@@ -184,12 +192,15 @@ void setup()
 
   sprintf(subscribe_topic, "cmnd/%s/shutterposition", hostname);
 
-/*  storage_struct.percent = 85;
+  storage.percent = 85;
   save_eeprom_data();
-  storage_struct.percent = 1;
-*/
+  storage.percent = 1;
+  
+
   //Probamos el HomeAssistant class
-  //ha = HomeAssistant(&mqtt);
+  #ifdef HOMEASSISTANT_SUPPORT
+  ha = HomeAssistant(&mqtt);
+  #endif
   
 }
 
@@ -323,7 +334,7 @@ void loop()
       }
     }
   } else {
-    if (state_btn2 == true) {
+    if (state_btn2 == true) { //El usuario ha desactivado el relé
       #ifdef DEBUG
       mqtt.publish(DEBUG_TOPIC, "DESactiva relé 2");
       delay(100);
@@ -347,8 +358,15 @@ void loop()
 
   // Alexa integration
   espalexa.loop();
-
-
+  /*
+  load_eeprom_data();
+  #ifdef DEBUG
+  char asd[512];
+  sprintf(asd, "Percent recuperado vale: %d", storage.percent);
+  mqtt.publish(DEBUG_TOPIC, asd);
+  delay(100);
+  #endif
+  */
   //Homeassistant integration (TODO)
   /*ha.SendDiscovery();
   delay(500);*/
@@ -366,6 +384,8 @@ void moveToPosition(uint8_t percent) {
     mqtt.publish(DEBUG_TOPIC, str);
     delay(50);
   #endif
+  device->setValue(percent);
+  espalexa.loop();
   #ifdef KINGART_Q4
     sprintf(str, "AT+UPDATE=\"sequence\":\"1572536577552\",\"setclose\":%d\x1b", percent); //TODO Poner valor aleatorio, si fuera necesario...
     Serial.print(str);
@@ -443,6 +463,7 @@ void percentBlind(uint8_t value) {
   mqtt.publish(DEBUG_TOPIC, "mueve el callback de alexa");
   #endif
   uint percent = 100-(value*100)/255; //100=open; 0=close
+
   //char cadenica[512];
   moveToPosition(percent);
 }

@@ -41,6 +41,7 @@ class HomeAssistant {
         HomeAssistant();
         HomeAssistant(PubSubClient* mqtt);
         void SendDiscovery();
+        void SendStatus(uint8_t percent, bool relay1, bool relay2);
         /*PubSubClient(Client& client);
         PubSubClient(IPAddress, uint16_t, Client& client);
         PubSubClient(IPAddress, uint16_t, Client& client, Stream&);
