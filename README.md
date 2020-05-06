@@ -40,4 +40,6 @@ When you first the first time, you can use this URL to do the next: http://<ip>:
 - [X] Integration with BlitzWolf SS4
 - [ ] Integration with HomeAssistant
 - [ ] Code clean (hehe)
-- [ ] Integration of Sonoff Dual R2
+- [X] Integration of Sonoff Dual R2
+- [ ] Add mDNS
+- [ ] Dynamic parameters instead hardcoded (time up/down, wifi, mqtt config, hostname, alexa name, ...)
