@@ -91,10 +91,10 @@ void handleFormMQTT() {
         configuration->setMQTTPort(httpServer.arg(i).toInt());
       }
       if (httpServer.argName(i) == "wifi_ssid") {
-        configuration->setMQTTPort(httpServer.arg(i).toInt());
+        configuration->setWifiSsid(httpServer.arg(i).c_str());
       }
       if (httpServer.argName(i) == "wifi_pass") {
-        configuration->setMQTTPort(httpServer.arg(i).toInt());
+        configuration->setWifiPass(httpServer.arg(i).c_str());
       }
     }
     httpServer.send(200, "text/plain", message);

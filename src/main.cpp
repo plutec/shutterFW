@@ -75,6 +75,7 @@ Espalexa espalexa;
 #ifdef HOMEASSISTANT_SUPPORT
 HomeAssistant ha;
 #endif
+bool netConnection = false;
 
 EspalexaDevice* device;
 
@@ -162,26 +163,39 @@ void setup()
   #endif
   pinConfiguration();
   
-  ConnectWiFi_STA(!use_dhcp);
-  mqtt.setServer(config.getMQTTServer(), config.getMQTTPort());
-  mqtt.setCallback(mqtt_callback);
-  
-  if (!mqtt.connected()) {
-    reconnect_mqtt();
+  if (!ConnectWiFi_STA(config.getWifiSsid(), config.getWifiPass(), !use_dhcp)) {
+    ConnectWiFi_AP();
+  } else {
+    netConnection = true;
   }
+
+  // MQTT
+  if (netConnection) {
+    mqtt.setServer(config.getMQTTServer(), config.getMQTTPort());
+    mqtt.setCallback(mqtt_callback);
+  
+    if (!mqtt.connected()) {
+      reconnect_mqtt();
+    }
+  }
+  
   // Webserver stuff
   webserver = WebServer(&config);
-
+  
   // Alexa stuff
-  alexaConfiguration();
-  espalexa.begin();
+  if (netConnection) {
+    alexaConfiguration();
+    espalexa.begin();
+  }
 
   // Other stuff
   sprintf(subscribe_topic, "cmnd/%s/shutterposition", hostname);
  
   // HomeAssistant stuff
   #if defined(HOMEASSISTANT_SUPPORT)
-  ha = HomeAssistant(&mqtt);
+  if (netConnection) {
+    ha = HomeAssistant(&mqtt);
+  }
   #endif
 
 
@@ -303,7 +317,7 @@ void clickManagement() {
       //Calculate percent
       unsigned long percent_calcula = moving_time/milliseconds_per_percent;
       config.setCurrentPosition(config.getCurrentPosition()-(int)percent_calcula);
-      if (config.getCurrentPosition()<0) { //TODO Esto posiblemente se pueda mover a Configuration
+      if (config.getCurrentPosition()<0) {
         config.setCurrentPosition(0);
       }
     }
@@ -320,17 +334,14 @@ void loop()
   //httpServer.handleClient();
   webserver.loop();
   
-  if (!mqtt.connected()) {
-    reconnect_mqtt();
+  // MQTT
+  if (netConnection) {
+    if (!mqtt.connected()) {
+      reconnect_mqtt();
+    }
+    mqtt.loop();
   }
-  mqtt.loop();
 
-  /*
-  char pa[12];
-  sprintf(pa, "percent: %d",storage.current_position);
-  mqtt.publish(DEBUG_TOPIC, pa);
-  delay(100);
-  */
   #ifdef KINGART_Q4
     if (Serial.available()>0) {
       String st = Serial.readStringUntil('\n');
@@ -345,7 +356,9 @@ void loop()
   clickManagement();
 
   // Alexa
-  espalexa.loop();
+  if (netConnection) {
+    espalexa.loop();
+  }
 
   // Save configuration data if necessary
   config.loop();

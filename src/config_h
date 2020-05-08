@@ -1,6 +1,4 @@
 //WiFi
-const char* ssid = "....";
-const char* password = ".........";
 const char* hostname = "persiana_despacho";
 
 //const char* json_homeassistant = "{\"name\": \"Persiana Despacho\",\"avty_t\": \"tele/persiana_despacho/LWT\",\"pl_avail\": \"Online\",\"pl_not_avail\": \"Offline\",\"uniq_id\": \"AAAAA_status\",\"dev\": {\"ids\": [\"AAAAAA\"],\"name\": \"Persiana Despacho\",\"mdl\": \"KingArt\",\"sw\": \"0.0.1(plutecFW)\",\"mf\": \"plutecFW\"}}";
@@ -11,12 +9,6 @@ IPAddress gateway(192, 168, 0, 1);
 IPAddress subnet(255, 255, 255, 0);
 
 #define ALEXA_NAME "Kingart blind"
-
-//MQTT
-const char* mqttServer = "192.168.0.10";
-const int mqttPort = 1883;  // Default 1883
-const char* mqttUser = NULL;  // In case no user use NULL
-const char* mqttPassword = NULL; // In case no password use NULL
 
 //Others
 #define VERSION_FW "0.0.1(shutterFW)"
