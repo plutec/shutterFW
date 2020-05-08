@@ -1,6 +1,5 @@
 #include <ESP8266WiFi.h>
 #include <ArduinoOTA.h>
-#include <EEPROM.h>
 #include "PubSubClient.h"
 #include "Espalexa.h"
 
@@ -8,8 +7,10 @@
 #include "WiFi_Utils.hpp"
 //#include <WiFiUdp.h> //TODO Borrar, ya ha hecho su trabajo
 #include <ESP8266HTTPUpdateServer.h>
-#include <ESP8266WebServer.h>
+//#include <ESP8266WebServer.h>
 #include "HomeAssistant.h"
+#include "WebServer.h"
+#include "Configuration.h"
 
 #define PAYLOAD_STOP "BLINDSTOP"
 #define PAYLOAD_OPEN "BLINDOPEN"
@@ -44,18 +45,6 @@ position_open: 100 -> Clear
 position_closed: 0 -> Clear
 */
 
-struct storage_struct{ 
-  bool new_values = true;
-  uint current_position = 100;
-  char *ssid[32];
-  char *wifi_pass[64];
-};
-storage_struct storage;
-
-
-
-
-
 void mqtt_callback(char* topic, byte* payload, unsigned int length);
 
 #if defined(BW_SS4) || defined(SONOFF_DUAL_R2)
@@ -76,37 +65,18 @@ bool state_btn2 = false;
 
 */
 WiFiUDP Udp;
+Configuration config;
+WebServer webserver;
 WiFiClient espClient;
 PubSubClient mqtt(espClient);
-ESP8266WebServer httpServer(8080);
-ESP8266HTTPUpdateServer httpUpdater;
+//ESP8266WebServer httpServer(8080);
+//ESP8266HTTPUpdateServer httpUpdater;
 Espalexa espalexa;
 #ifdef HOMEASSISTANT_SUPPORT
 HomeAssistant ha;
 #endif
 
 EspalexaDevice* device;
-
-// eeprom management
-void save_eeprom_data() {
-  uint addr = 0;
-  if (storage.new_values == true) {
-    mqtt.publish(DEBUG_TOPIC, "Guarda memoria");
-    storage.new_values = false;
-    
-    EEPROM.put(addr, storage);
-    EEPROM.commit();  
-  }
-  
-}
-
-void load_eeprom_data() {
-  //Return only the percent of the shutter
-  uint addr = 0;
-  //EEPROM.begin(sizeof(storage_struct)); //bytes
-  EEPROM.get(addr, storage);
-}
-
 
 //ALEXA CALLBACK
 void percentBlind(uint8_t value);
@@ -180,35 +150,27 @@ void alexaConfiguration() {
   device = new EspalexaDevice(ALEXA_NAME, percentBlind); //you can also create the Device objects yourself like here
   espalexa.addDevice(device); //and then add them
   #if defined(BW_SS4) || defined(SONOFF_DUAL_R2)
-  device->setValue(storage.current_position); //this allows you to e.g. update their state value at any time!
+  device->setValue(config.getCurrentPosition()); //this allows you to e.g. update their state value at any time!
   #endif
 }
 void setup()
 {
   #ifdef KINGART_Q4
   Serial.begin(19200);
+  #else
+  Serial.begin(115200);
   #endif
-  Serial.begin(19200);
-  
-  //Eeprom initialization
-  EEPROM.begin(sizeof(storage_struct)); //bytes
-  load_eeprom_data();
-
   pinConfiguration();
   
   ConnectWiFi_STA(!use_dhcp);
-  
-  mqtt.setServer(mqttServer, mqttPort);
+  mqtt.setServer(config.getMQTTServer(), config.getMQTTPort());
   mqtt.setCallback(mqtt_callback);
   
   if (!mqtt.connected()) {
     reconnect_mqtt();
   }
-
-
-  // OTA Server
-  httpUpdater.setup(&httpServer);
-  httpServer.begin();
+  // Webserver stuff
+  webserver = WebServer(&config);
 
   // Alexa stuff
   alexaConfiguration();
@@ -221,6 +183,8 @@ void setup()
   #if defined(HOMEASSISTANT_SUPPORT)
   ha = HomeAssistant(&mqtt);
   #endif
+
+
   
 }
 
@@ -248,7 +212,7 @@ void clickManagement() {
   if (digitalRead(BUTTON1) == LOW) { // Remind this is active at LOW
     //Esto es para subir, tenemos la posición actual en "current_position". Sabemos que hasta el 100% le queda 100-current_position (pongamos 20%).
     //En subir ese 20% tarda 20*milliseconds_per_percent. Pongo un tope de estos millis y retrocemos hasta que llegue a 0.
-    if (state_btn1 == false && storage.current_position < 100) {
+    if (state_btn1 == false && config.getCurrentPosition() < 100) {
       #ifdef DEBUG
       mqtt.publish(DEBUG_TOPIC, "Activa relé 1");
       delay(100);
@@ -257,9 +221,9 @@ void clickManagement() {
       state_btn1 = true;
       //timming = millis(); //Enable timming
       first_timming = millis(); //Time of activation
-      timming = (100-storage.current_position)*milliseconds_per_percent; //Time to reach 100%
+      timming = (100-config.getCurrentPosition())*milliseconds_per_percent; //Time to reach 100%
       last_timming = millis(); 
-    } else if (storage.current_position == 100){ //Está ya activo
+    } else if (config.getCurrentPosition() == 100){ //Está ya activo y ha llegado al final
       //Do nothing
     } else { 
       #ifdef DEBUG
@@ -277,8 +241,7 @@ void clickManagement() {
       if (timming <= 0) { //Ha llegado al final, tenemos que parar!
         move(false, RELAY1);
         state_btn1 = false;
-        storage.current_position = 100;
-        storage.new_values = true;
+        config.setCurrentPosition(100);
         #ifdef DEBUG
         mqtt.publish(DEBUG_TOPIC, "Relé1 ha llegado al final, tenemos que parar!");
         //delay(100);
@@ -297,16 +260,15 @@ void clickManagement() {
       unsigned long moving_time = millis() - first_timming;
       //Calculate percent
       unsigned long percent_calcula = moving_time/milliseconds_per_percent;
-      storage.current_position = storage.current_position+(int)percent_calcula;
-      if (100<storage.current_position) {
-        storage.current_position = 100;
+      config.setCurrentPosition(config.getCurrentPosition()+(int)percent_calcula);
+      if (100<config.getCurrentPosition()) { //TODO This part could move to Configuration methods
+        config.setCurrentPosition(100);
       }
-      storage.new_values = true;
     }
   }
   // Button 2
   if (digitalRead(BUTTON2) == LOW) { // Remind this is active at LOW
-    if (state_btn2 == false && storage.current_position > 0) {
+    if (state_btn2 == false && config.getCurrentPosition() > 0) {
       #ifdef DEBUG
       mqtt.publish(DEBUG_TOPIC, "Activa relé 2");
       delay(100);
@@ -315,9 +277,9 @@ void clickManagement() {
       state_btn2 = true;
       //timming = millis(); //Enable timming
       first_timming = millis(); //Time of activation
-      timming = storage.current_position*milliseconds_per_percent; //Time to reach 0%
+      timming = config.getCurrentPosition()*milliseconds_per_percent; //Time to reach 0%
       last_timming = millis(); 
-    } else if (storage.current_position == 0){ 
+    } else if (config.getCurrentPosition() == 0){ 
       //Do nothing
     } else { //Está ya activo
       timming = timming-(millis()-last_timming);
@@ -325,8 +287,7 @@ void clickManagement() {
       if (timming <= 0) { //Ha llegado al final, tenemos que parar!
         move(false, RELAY2);
         state_btn2 = false;
-        storage.current_position = 0;
-        storage.new_values = true;
+        config.setCurrentPosition(0);
       }
     }
   } else {
@@ -341,11 +302,10 @@ void clickManagement() {
       unsigned long moving_time = millis() - first_timming;
       //Calculate percent
       unsigned long percent_calcula = moving_time/milliseconds_per_percent;
-      storage.current_position = storage.current_position-(int)percent_calcula;
-      if (storage.current_position<0) {
-        storage.current_position = 0;
+      config.setCurrentPosition(config.getCurrentPosition()-(int)percent_calcula);
+      if (config.getCurrentPosition()<0) { //TODO Esto posiblemente se pueda mover a Configuration
+        config.setCurrentPosition(0);
       }
-      storage.new_values = true;
     }
   }
   //debounce delay
@@ -357,17 +317,20 @@ void clickManagement() {
 
 void loop() 
 {
-  httpServer.handleClient();
+  //httpServer.handleClient();
+  webserver.loop();
+  
   if (!mqtt.connected()) {
     reconnect_mqtt();
   }
   mqtt.loop();
 
+  /*
   char pa[12];
   sprintf(pa, "percent: %d",storage.current_position);
   mqtt.publish(DEBUG_TOPIC, pa);
   delay(100);
-  
+  */
   #ifdef KINGART_Q4
     if (Serial.available()>0) {
       String st = Serial.readStringUntil('\n');
@@ -384,8 +347,8 @@ void loop()
   // Alexa
   espalexa.loop();
 
-  // Save eeprom data if necessary
-  save_eeprom_data();
+  // Save configuration data if necessary
+  config.loop();
 
   // HomeAssistant (TODO)
   /*ha.SendDiscovery();
@@ -409,15 +372,15 @@ void moveToPosition(uint8_t percent) {
     Serial.flush();
   #endif
   #if defined(BW_SS4) || defined(SONOFF_DUAL_R2)
-    if (storage.current_position == percent) { //In the requested position
+    if (config.getCurrentPosition() == percent) { //In the requested position
       //Do nothing
-    } else if (storage.current_position > percent) { // We need to close
+    } else if (config.getCurrentPosition() > percent) { // We need to close
       #ifdef DEBUG
         mqtt.publish(DEBUG_TOPIC, "Close...");
         delay(50);
       #endif
       //RELAY1 OFF, RELAY2 ON
-      unsigned long diff = (storage.current_position - percent)*milliseconds_per_percent;
+      unsigned long diff = (config.getCurrentPosition() - percent)*milliseconds_per_percent;
       //sprintf(str, "El tiempo es de... %lu", diff);
       //mqtt.publish(DEBUG_TOPIC, str);
         delay(50);
@@ -429,13 +392,13 @@ void moveToPosition(uint8_t percent) {
       /*digitalWrite(LED, LOW);
       delayMicroseconds(diff);
       digitalWrite(LED, HIGH);*/
-    } else if (storage.current_position < percent) { // We need to open
+    } else if (config.getCurrentPosition() < percent) { // We need to open
       #ifdef DEBUG
         mqtt.publish(DEBUG_TOPIC, "Open...");
         delay(50);
       #endif
       //RELAY1 ON, RELAY2 OFF
-      unsigned long diff = (percent-storage.current_position)*milliseconds_per_percent;
+      unsigned long diff = (percent-config.getCurrentPosition())*milliseconds_per_percent;
       #ifdef DEBUG
       sprintf(str, "El tiempo es de... %lu", diff);
       mqtt.publish(DEBUG_TOPIC, str);
@@ -450,8 +413,7 @@ void moveToPosition(uint8_t percent) {
       delayMicroseconds(diff);
       digitalWrite(LED, HIGH);*/
     }
-    storage.current_position = percent;
-    storage.new_values = true;
+    config.setCurrentPosition(percent);
   #endif
 
 }

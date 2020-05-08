@@ -1,3 +1,5 @@
+#include "config.h"
+
 void ConnectWiFi_STA(bool useStaticIP = false)
 {
    //Serial.println("");
