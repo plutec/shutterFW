@@ -12,9 +12,11 @@ WebServer::WebServer(Configuration *config) {
   //Pruebas webserver
   httpServer.on("/", handleRoot);
 
-  httpServer.on("/postplain/", handlePlain);
+  httpServer.on("/restart", handleRestart);
 
-  httpServer.on("/p/", handleFormMQTT);
+  httpServer.on("/postplain", handlePlain);
+
+  httpServer.on("/p", handleFormMQTT);
 
   httpServer.onNotFound(handleNotFound);
 
@@ -38,25 +40,38 @@ void handleRoot() {
     </style>\
   </head>\
   <body>\
-    <a href=\"/update\">Go to update page</a>\
+    <a href=\"/update\">Go to update page</a><br>\
+    <a href=\"/restart\">Restart</a><br>\
+    <h1>Node information</h1><br>\
+    <form method=\"post\" enctype=\"application/x-www-form-urlencoded\" action=\"/p\">\
+      Hostname: <input type=\"text\" name=\"hostname\" value=\""+String(configuration->getHostname())+"\"><br>\
+      Alexa name: <input type=\"text\" name=\"alexa_name\" value=\""+String(configuration->getAlexaName())+"\"><br>\
+      Open/close time: <input type=\"text\" name=\"open_time\" value=\""+String(configuration->getOpenTime())+"\"> seconds <br>\
+      <input type=\"submit\" value=\"Change general information\">\
+    </form>\
     <h1>MQTT information</h1><br>\
-    <form method=\"post\" enctype=\"application/x-www-form-urlencoded\" action=\"/p/\">\
-      Server: <input type=\"text\" name=\"server\" value=\"\"><br>\
-      Port: <input type=\"text\" name=\"port\" value=\"1883\"><br>\
-      User: <input type=\"text\" name=\"user\" value=\"\"><br>\
-      Pass: <input type=\"text\" name=\"pass\" value=\"\"><br>\
-      <input type=\"submit\" value=\"Submit\">\
+    <form method=\"post\" enctype=\"application/x-www-form-urlencoded\" action=\"/p\">\
+      Server: <input type=\"text\" name=\"server\" value=\""+String(configuration->getMQTTServer())+"\"><br>\
+      Port: <input type=\"text\" name=\"port\" value=\""+String(configuration->getMQTTPort())+"\"><br>\
+      User: <input type=\"text\" name=\"user\" value=\""+String(configuration->getMQTTUser())+"\"><br>\
+      Pass: <input type=\"text\" name=\"pass\" value=\""+String(configuration->getMQTTPassword())+"\"><br>\
+      <input type=\"submit\" value=\"Change MQTT Information\">\
     </form>\
     <h1>WiFi information</h1><br>\
-    <form method=\"post\" enctype=\"application/x-www-form-urlencoded\" action=\"/p/\">\
-      SSID: <input type=\"text\" name=\"wifi_ssid\" value=\"\"><br>\
-      WiFi Password: <input type=\"text\" name=\"wifi_pass\" value=\"\"><br>\
-      <input type=\"submit\" value=\"Submit\">\
+    <form method=\"post\" enctype=\"application/x-www-form-urlencoded\" action=\"/p\">\
+      SSID: <input type=\"text\" name=\"wifi_ssid\" value=\""+String(configuration->getWifiSsid())+"\"><br>\
+      WiFi Password: <input type=\"password\" name=\"wifi_pass\" value=\"\"><br>\
+      <input type=\"submit\" value=\"Change Wifi information\">\
     </form>\
   </body>\
 </html>";
 
   httpServer.send(200, "text/html", postForms);
+}
+
+void handleRestart() {
+  httpServer.send(200, "text/plain", "<META http-equiv=\"refresh\" content=\"15;URL=/\">Restarting...\n" + httpServer.arg("plain"));
+  ESP.restart();
 }
 
 void handlePlain() {
@@ -95,6 +110,15 @@ void handleFormMQTT() {
       }
       if (httpServer.argName(i) == "wifi_pass") {
         configuration->setWifiPass(httpServer.arg(i).c_str());
+      }
+      if (httpServer.argName(i) == "hostname") {
+        configuration->setHostname(httpServer.arg(i).c_str());
+      }
+      if (httpServer.argName(i) == "alexa_name") {
+        configuration->setAlexaName(httpServer.arg(i).c_str());
+      }
+      if (httpServer.argName(i) == "open_time") {
+        configuration->setOpenTime(httpServer.arg(i).toInt());
       }
     }
     httpServer.send(200, "text/plain", message);

@@ -1,5 +1,5 @@
 //WiFi
-const char* hostname = "persiana_despacho";
+//const char* hostname = "persiana_despacho";
 
 //const char* json_homeassistant = "{\"name\": \"Persiana Despacho\",\"avty_t\": \"tele/persiana_despacho/LWT\",\"pl_avail\": \"Online\",\"pl_not_avail\": \"Offline\",\"uniq_id\": \"AAAAA_status\",\"dev\": {\"ids\": [\"AAAAAA\"],\"name\": \"Persiana Despacho\",\"mdl\": \"KingArt\",\"sw\": \"0.0.1(plutecFW)\",\"mf\": \"plutecFW\"}}";
 const bool use_dhcp = false; //false == don't use DHCP, true == use DHCP

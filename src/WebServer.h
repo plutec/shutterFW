@@ -4,6 +4,7 @@
 #include "Configuration.h"
 
 void handleRoot();
+void handleRestart();
 void handlePlain();
 void handleFormMQTT();
 void handleNotFound();

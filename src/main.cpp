@@ -47,12 +47,17 @@ position_closed: 0 -> Clear
 
 void mqtt_callback(char* topic, byte* payload, unsigned int length);
 
+//ALEXA CALLBACK
+void percentBlind(uint8_t value);
+
 #if defined(BW_SS4) || defined(SONOFF_DUAL_R2)
 //uint8 current_position = 80; //TODO. At startup it takes 100 position (totally open). It can update later from retained message in MQTT or from Flash memory
-unsigned long milliseconds_per_percent = TIMEOPEN*10; // Time take to open or close 1 percent (in milliseconds).
+unsigned long milliseconds_per_percent;
 bool state_btn1 = false;
 bool state_btn2 = false;
 #endif
+bool netConnection = false;
+
 
 /*
 - Los botones activan la MCU y mandan el activo/inactivo a los relés
@@ -75,17 +80,13 @@ Espalexa espalexa;
 #ifdef HOMEASSISTANT_SUPPORT
 HomeAssistant ha;
 #endif
-bool netConnection = false;
 
 EspalexaDevice* device;
 
-//ALEXA CALLBACK
-void percentBlind(uint8_t value);
-
 char subscribe_topic[64];
-
 long timming;
 unsigned long last_timming, first_timming;
+
 
 /*
 PASOS
@@ -105,14 +106,14 @@ PASOS
 */
 
 void reconnect_mqtt() {
-  uint8_t count = 5;
-  while (!mqtt.connected() && count>0) {
-    if (mqtt.connect(hostname)) {
+  //uint8_t count = 5;
+  if (!mqtt.connected()) {
+    if (mqtt.connect(config.getHostname())) {
       #ifdef DEBUG
       mqtt.publish(DEBUG_TOPIC, "Conectado de nuevo");
-      mqtt.publish(DEBUG_TOPIC, hostname);
+      mqtt.publish(DEBUG_TOPIC, config.getHostname());
       #endif
-      //mqtt.publish("tele/persiana_despacho/LWT", "Online", true); // Retained TODO mover a HA??
+      //mqtt.publish("tele/persiana_despacho/LWT", "Online", true); // Retained TODO mover a HA
       //subscribe to:
       // cmnd/<device_name>/shutterposition
       mqtt.subscribe(subscribe_topic);
@@ -120,7 +121,7 @@ void reconnect_mqtt() {
       // Wait 5 seconds before retrying
       delay(1000);
     }
-    count--;
+    //count--;
   }
 }
 /*
@@ -156,19 +157,27 @@ void alexaConfiguration() {
 }
 void setup()
 {
+  
   #ifdef KINGART_Q4
   Serial.begin(19200);
   #else
   Serial.begin(115200);
   #endif
+  config.begin();
+  
+  #if defined(BW_SS4) || defined(SONOFF_DUAL_R2)
+    milliseconds_per_percent = config.getOpenTime()*10; // Time take to open or close 1 percent (in milliseconds).
+  #endif
+  
   pinConfiguration();
   
   if (!ConnectWiFi_STA(config.getWifiSsid(), config.getWifiPass(), !use_dhcp)) {
     ConnectWiFi_AP();
+    netConnection = false;
   } else {
     netConnection = true;
   }
-
+  
   // MQTT
   if (netConnection) {
     mqtt.setServer(config.getMQTTServer(), config.getMQTTPort());
@@ -178,19 +187,19 @@ void setup()
       reconnect_mqtt();
     }
   }
-  
+
   // Webserver stuff
   webserver = WebServer(&config);
-  
+
   // Alexa stuff
   if (netConnection) {
     alexaConfiguration();
     espalexa.begin();
   }
-
+  
   // Other stuff
-  sprintf(subscribe_topic, "cmnd/%s/shutterposition", hostname);
- 
+  sprintf(subscribe_topic, "cmnd/%s/shutterposition", config.getHostname());
+
   // HomeAssistant stuff
   #if defined(HOMEASSISTANT_SUPPORT)
   if (netConnection) {
@@ -331,9 +340,8 @@ void clickManagement() {
 
 void loop() 
 {
-  //httpServer.handleClient();
   webserver.loop();
-  
+
   // MQTT
   if (netConnection) {
     if (!mqtt.connected()) {
@@ -359,10 +367,9 @@ void loop()
   if (netConnection) {
     espalexa.loop();
   }
-
+  
   // Save configuration data if necessary
   config.loop();
-
   // HomeAssistant (TODO)
   /*ha.SendDiscovery();
   delay(500);*/
