@@ -240,6 +240,22 @@ void clickManagement() {
       #ifdef DEBUG
       mqtt.publish(DEBUG_TOPIC, st.c_str());
       #endif
+      uint8_t pos = st.lastIndexOf("\"setclose\":");
+      pos += 11; // len of "setclose":
+
+      String num;// = "";
+      while(isdigit(st[pos])) {
+        num += st[pos];
+        ++pos;
+      }
+      #ifdef DEBUG
+      mqtt.publish(DEBUG_TOPIC, num.c_str());
+      #endif
+      if (config.getCurrentPosition() != num.toInt()) {
+        config.setCurrentPosition(num.toInt());
+        device->setPercent(100-num.toInt());
+      }
+      
     }
   #endif
   #if defined(BW_SS4) || defined(SONOFF_DUAL_R2)
