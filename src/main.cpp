@@ -295,6 +295,7 @@ void clickManagement() {
         move(false, RELAY1);
         state_btn1 = false;
         config.setCurrentPosition(100);
+        device->setPercent(100);
         #ifdef DEBUG
         mqtt.publish(DEBUG_TOPIC, "Relé1 ha llegado al final, tenemos que parar!");
         //delay(100);
@@ -313,10 +314,12 @@ void clickManagement() {
       unsigned long moving_time = millis() - first_timming;
       //Calculate percent
       unsigned long percent_calcula = moving_time/milliseconds_per_percent;
-      config.setCurrentPosition(config.getCurrentPosition()+(int)percent_calcula);
-      if (100<config.getCurrentPosition()) { //TODO This part could move to Configuration methods
-        config.setCurrentPosition(100);
+      uint8_t new_position = config.getCurrentPosition()+(int)percent_calcula;
+      if (new_position > 100) {
+        new_position = 100;
       }
+      config.setCurrentPosition(new_position);
+      device->setPercent(new_position);
     }
   }
   // Button 2
@@ -341,6 +344,7 @@ void clickManagement() {
         move(false, RELAY2);
         state_btn2 = false;
         config.setCurrentPosition(0);
+        device->setPercent(0);
       }
     }
   } else {
@@ -355,10 +359,12 @@ void clickManagement() {
       unsigned long moving_time = millis() - first_timming;
       //Calculate percent
       unsigned long percent_calcula = moving_time/milliseconds_per_percent;
-      config.setCurrentPosition(config.getCurrentPosition()-(int)percent_calcula);
-      if (config.getCurrentPosition()<0) {
-        config.setCurrentPosition(0);
+      int8_t new_position = config.getCurrentPosition()-(int)percent_calcula;
+      if (new_position < 0) {
+        new_position = 0;
       }
+      config.setCurrentPosition(new_position);
+      device->setPercent(new_position);
     }
   }
   //debounce delay
@@ -456,6 +462,7 @@ void moveToPosition(uint8_t percent, uint8_t alexa_value) {
       digitalWrite(LED, HIGH);*/
     }
     config.setCurrentPosition(percent);
+    device->setPercent(percent);
   #endif
 
 }
