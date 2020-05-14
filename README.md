@@ -42,4 +42,4 @@ When you first the first time, you can use this URL to do the next: http://<ip>:
 - [ ] Code clean (hehe)
 - [X] Integration of Sonoff Dual R2
 - [ ] Add mDNS
-- [ ] Dynamic parameters instead hardcoded (time up/down, wifi, mqtt config, hostname, alexa name, ...)
+- [X] Dynamic parameters instead hardcoded (time up/down, wifi, mqtt config, hostname, alexa name, ...)

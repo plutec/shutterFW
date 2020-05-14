@@ -149,10 +149,10 @@ void pinConfiguration() {
 }
 
 void alexaConfiguration() {
-  device = new EspalexaDevice(ALEXA_NAME, percentBlind); //you can also create the Device objects yourself like here
+  device = new EspalexaDevice(config.getAlexaName(), percentBlind);
   espalexa.addDevice(device); //and then add them
   #if defined(BW_SS4) || defined(SONOFF_DUAL_R2)
-  device->setValue(config.getCurrentPosition()); //this allows you to e.g. update their state value at any time!
+  device->setPercent(config.getCurrentPosition()); //this allows you to e.g. update their state value at any time!
   #endif
 }
 void setup()
@@ -160,9 +160,13 @@ void setup()
   
   #ifdef KINGART_Q4
   Serial.begin(19200);
+  delay(1000);
+  Serial.print("AT+UPDATE=\"switch\":\"pause\"\x1b"); // \x1b
+  Serial.flush();
   #else
   Serial.begin(115200);
   #endif
+
   config.begin();
   
   #if defined(BW_SS4) || defined(SONOFF_DUAL_R2)
@@ -228,6 +232,16 @@ void move(bool moveOrStop, uint8_t relay) {
 #endif
 
 void clickManagement() {
+  #ifdef KINGART_Q4
+    if (Serial.available()>0) {
+      String st = Serial.readStringUntil('\n');
+      st[st.length()-1] = '\0';
+
+      #ifdef DEBUG
+      mqtt.publish(DEBUG_TOPIC, st.c_str());
+      #endif
+    }
+  #endif
   #if defined(BW_SS4) || defined(SONOFF_DUAL_R2)
   // Button 1
   //bool pinValue = digitalRead(BUTTON1);
@@ -350,17 +364,7 @@ void loop()
     mqtt.loop();
   }
 
-  #ifdef KINGART_Q4
-    if (Serial.available()>0) {
-      String st = Serial.readStringUntil('\n');
-      st[st.length()-1] = '\0';
-
-      #ifdef DEBUG
-      mqtt.publish(DEBUG_TOPIC, st.c_str());
-      #endif
-    }
-  #endif
-  
+  // Click management. Also for KingArt Serial communication (feedback from physical buttons)  
   clickManagement();
 
   // Alexa
@@ -377,17 +381,19 @@ void loop()
 
 
 
-void moveToPosition(uint8_t percent) {
-  char str[80];
+void moveToPosition(uint8_t percent, uint8_t alexa_value) {
+  char str[90];
+  //uint8_t percent_alexa = 100-percent;
+  //device->setPercent(percent_alexa);
+  device->setValue(alexa_value);
+  espalexa.loop();
   #ifdef DEBUG
-    sprintf(str, "Value going to change to percent %u", percent);
+    sprintf(str, "Value going to change to percent %u; alexa_value = %u", percent, alexa_value);
     mqtt.publish(DEBUG_TOPIC, str);
     delay(50);
   #endif
-  device->setValue(percent);
-  espalexa.loop();
   #ifdef KINGART_Q4
-    sprintf(str, "AT+UPDATE=\"sequence\":\"1572536577552\",\"setclose\":%d\x1b", percent); //TODO Poner valor aleatorio, si fuera necesario...
+    sprintf(str, "AT+UPDATE=\"sequence\":\"1572536577552\",\"setclose\":%d\x1b", percent); //TODO Poner valor de secuencia aleatorio, si fuera necesario...
     Serial.print(str);
     Serial.flush();
   #endif
@@ -439,8 +445,6 @@ void moveToPosition(uint8_t percent) {
 }
 
 void mqtt_callback(char* topic, byte* payload, unsigned int length) {
-  mqtt.publish(DEBUG_TOPIC, "Callback msg...");
-  delay(50);
   String messageTemp;
   for (unsigned int i=0; i < length; i++) {
     messageTemp += (char)payload[i];
@@ -452,16 +456,19 @@ void mqtt_callback(char* topic, byte* payload, unsigned int length) {
   mqtt.publish(DEBUG_TOPIC, messageTemp.c_str());
   delay(50);
   #endif
-  int percent = atoi(messageTemp.c_str());
-  moveToPosition(percent);
+  uint8_t percent = atoi(messageTemp.c_str());
+  uint8_t alexa_value = (percent * 255)/100;
+  moveToPosition(percent, alexa_value);
 }
 
 void percentBlind(uint8_t value) {
   #ifdef DEBUG
-  mqtt.publish(DEBUG_TOPIC, "mueve el callback de alexa");
+  char str[80];
+  sprintf(str, "Mueve el callback de alexa valor %u", value);
+  mqtt.publish(DEBUG_TOPIC, str);
   #endif
-  uint percent = 100-(value*100)/255; //100=open; 0=close
 
-  //char cadenica[512];
-  moveToPosition(percent);
+  uint8_t percent = 100-(value*100)/255; //100=open; 0=close
+
+  moveToPosition(percent, value);
 }

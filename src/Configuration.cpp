@@ -185,8 +185,8 @@ void Configuration::setAlexaName(const char *alexa_name) {
 }
 
 char* Configuration::getAlexaName() {
-        if (storage.alexa_name[0] == '\0') {
-        return NULL;
+    if (storage.alexa_name[0] == '\0') {
+        return "Alexa device";
     }
     return storage.alexa_name;
 }
@@ -201,11 +201,14 @@ uint32_t Configuration::getOpenTime() {
     return storage.openTime;
 }
 
-void Configuration::setCurrentPosition(int current_position) {
+void Configuration::setCurrentPosition(uint8_t current_position) {
     storage.current_position = current_position;
     storage.new_values = true;
 }
 
-int Configuration::getCurrentPosition() {
+uint8_t Configuration::getCurrentPosition() {
+    if (storage.current_position > 100) {
+        storage.current_position = 100;
+    }
     return storage.current_position;
 }

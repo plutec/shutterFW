@@ -40,13 +40,14 @@ void handleRoot() {
     </style>\
   </head>\
   <body>\
+    <h1>"+String(configuration->getHostname())+"</h1>\
     <a href=\"/update\">Go to update page</a><br>\
     <a href=\"/restart\">Restart</a><br>\
     <h1>Node information</h1><br>\
     <form method=\"post\" enctype=\"application/x-www-form-urlencoded\" action=\"/p\">\
       Hostname: <input type=\"text\" name=\"hostname\" value=\""+String(configuration->getHostname())+"\"><br>\
       Alexa name: <input type=\"text\" name=\"alexa_name\" value=\""+String(configuration->getAlexaName())+"\"><br>\
-      Open/close time: <input type=\"text\" name=\"open_time\" value=\""+String(configuration->getOpenTime())+"\"> seconds <br>\
+      Open/close time: <input type=\"text\" name=\"open_time\" value=\""+String(configuration->getOpenTime())+"\"> seconds (Not valid for KingArt Q4)<br>\
       <input type=\"submit\" value=\"Change general information\">\
     </form>\
     <h1>MQTT information</h1><br>\

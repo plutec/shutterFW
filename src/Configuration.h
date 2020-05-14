@@ -62,8 +62,8 @@ class Configuration {
         // Shutter management
         void setOpenTime(int time_sec);
         uint32_t getOpenTime();
-        void setCurrentPosition(int current_position);
-        int getCurrentPosition();
+        void setCurrentPosition(uint8_t current_position);
+        uint8_t getCurrentPosition();
         
         // loop
         void loop();
