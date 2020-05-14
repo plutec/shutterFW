@@ -368,7 +368,7 @@ void clickManagement() {
     }
   }
   //debounce delay
-  int Milliseconds = millis()+50;
+  unsigned long Milliseconds = millis()+50;
   while (Milliseconds > millis()) ;
   #endif
 }
