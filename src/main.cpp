@@ -161,7 +161,7 @@ void setup()
   #ifdef KINGART_Q4
   Serial.begin(19200);
   delay(1000);
-  Serial.print("AT+UPDATE=\"switch\":\"pause\"\x1b"); // \x1b
+  Serial.println("AT+UPDATE=\"sequence\":\"1572542635565\",\"switch\":\"pause\"\x1b"); // \x1b
   Serial.flush();
   #else
   Serial.begin(115200);
@@ -240,20 +240,22 @@ void clickManagement() {
       #ifdef DEBUG
       mqtt.publish(DEBUG_TOPIC, st.c_str());
       #endif
-      uint8_t pos = st.lastIndexOf("\"setclose\":");
-      pos += 11; // len of "setclose":
+      int8_t pos = st.lastIndexOf("\"setclose\":");
+      if (pos != -1) { 
+        pos += 11; // len of "setclose":
 
-      String num;// = "";
-      while(isdigit(st[pos])) {
-        num += st[pos];
-        ++pos;
-      }
-      #ifdef DEBUG
-      mqtt.publish(DEBUG_TOPIC, num.c_str());
-      #endif
-      if (config.getCurrentPosition() != num.toInt()) {
-        config.setCurrentPosition(num.toInt());
-        device->setPercent(100-num.toInt());
+        String num;// = "";
+        while(isdigit(st[pos])) {
+          num += st[pos];
+          ++pos;
+        }
+        #ifdef DEBUG
+        mqtt.publish(DEBUG_TOPIC, num.c_str());
+        #endif
+        if (config.getCurrentPosition() != num.toInt()) {
+          config.setCurrentPosition(num.toInt());
+          device->setPercent(100-num.toInt());
+        }
       }
       
     }
@@ -401,10 +403,10 @@ void loop()
   delay(500);*/
 }
 
-
-
 void moveToPosition(uint8_t percent, uint8_t alexa_value) {
+  #if defined(DEBUG) || defined(KINGART_Q4)
   char str[90];
+  #endif
   //uint8_t percent_alexa = 100-percent;
   //device->setPercent(percent_alexa);
   device->setValue(alexa_value);
@@ -415,11 +417,13 @@ void moveToPosition(uint8_t percent, uint8_t alexa_value) {
     delay(50);
   #endif
   #ifdef KINGART_Q4
+    percent = 100-percent;
     sprintf(str, "AT+UPDATE=\"sequence\":\"1572536577552\",\"setclose\":%d\x1b", percent); //TODO Poner valor de secuencia aleatorio, si fuera necesario...
     Serial.print(str);
     Serial.flush();
   #endif
   #if defined(BW_SS4) || defined(SONOFF_DUAL_R2)
+    //percent = 100-percent;
     if (config.getCurrentPosition() == percent) { //In the requested position
       //Do nothing
     } else if (config.getCurrentPosition() > percent) { // We need to close
@@ -435,7 +439,17 @@ void moveToPosition(uint8_t percent, uint8_t alexa_value) {
       // First, assure RELAY1 is stopped
       digitalWrite(RELAY1, LOW);
       digitalWrite(RELAY2, HIGH);
-      delay(diff);
+      // This block of code is to prevent the error in alexa like: "Device does not response"
+      uint8_t ent = diff/500;
+      uint8_t dec = diff%500;
+      for (uint8_t i=0;i<ent;++i) {
+        delay(500);
+        espalexa.loop();
+      }
+      delay(dec);
+      espalexa.loop();
+      //delay(diff);
+      // End of the block of alexa problem
       digitalWrite(RELAY2, LOW);
       /*digitalWrite(LED, LOW);
       delayMicroseconds(diff);
@@ -455,14 +469,21 @@ void moveToPosition(uint8_t percent, uint8_t alexa_value) {
       // First, assure RELAY2 is stopped
       digitalWrite(RELAY2, LOW);
       digitalWrite(RELAY1, HIGH);
-      delay(diff);
+      // This block of code is to prevent the error in alexa like: "Device does not response"
+      uint8_t ent = diff/500;
+      uint8_t dec = diff%500;
+      for (uint8_t i=0;i<ent;++i) {
+        delay(500);
+        espalexa.loop();
+      }
+      delay(dec);
+      espalexa.loop();
+      //delay(diff);
+      // End of the block of alexa problem
       digitalWrite(RELAY1, LOW);
-      /*digitalWrite(LED, LOW);
-      delayMicroseconds(diff);
-      digitalWrite(LED, HIGH);*/
     }
     config.setCurrentPosition(percent);
-    device->setPercent(percent);
+    //device->setPercent(percent);
   #endif
 
 }
@@ -490,8 +511,8 @@ void percentBlind(uint8_t value) {
   sprintf(str, "Mueve el callback de alexa valor %u", value);
   mqtt.publish(DEBUG_TOPIC, str);
   #endif
-
-  uint8_t percent = 100-(value*100)/255; //100=open; 0=close
+  //0 para alexa es 0 para mi, 255 para alexa es 100 para mi
+  uint8_t percent = (value*100)/255; //100=open; 0=close
 
   moveToPosition(percent, value);
 }

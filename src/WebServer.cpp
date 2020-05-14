@@ -48,6 +48,7 @@ void handleRoot() {
       Hostname: <input type=\"text\" name=\"hostname\" value=\""+String(configuration->getHostname())+"\"><br>\
       Alexa name: <input type=\"text\" name=\"alexa_name\" value=\""+String(configuration->getAlexaName())+"\"><br>\
       Open/close time: <input type=\"text\" name=\"open_time\" value=\""+String(configuration->getOpenTime())+"\"> seconds (Not valid for KingArt Q4)<br>\
+      Current position: "+String(configuration->getCurrentPosition())+"<br>\
       <input type=\"submit\" value=\"Change general information\">\
     </form>\
     <h1>MQTT information</h1><br>\
