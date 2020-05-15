@@ -22,7 +22,6 @@
 #define DEBUG_TOPIC "persiana/debug"
 
 
-
 //MQTT INFO
 /*
 availability_topic: "tele/persiana_despacho/LWT" (Online/Offline)
@@ -249,9 +248,6 @@ void clickManagement() {
           num += st[pos];
           ++pos;
         }
-        #ifdef DEBUG
-        mqtt.publish(DEBUG_TOPIC, num.c_str());
-        #endif
         if (config.getCurrentPosition() != num.toInt()) {
           config.setCurrentPosition(num.toInt());
           device->setPercent(100-num.toInt());
@@ -398,6 +394,7 @@ void loop()
   
   // Save configuration data if necessary
   config.loop();
+
   // HomeAssistant (TODO)
   /*ha.SendDiscovery();
   delay(500);*/
@@ -488,6 +485,7 @@ void moveToPosition(uint8_t percent, uint8_t alexa_value) {
 
 }
 
+// MQTT callback (when receive a msg in the subscribed topic)
 void mqtt_callback(char* topic, byte* payload, unsigned int length) {
   String messageTemp;
   for (unsigned int i=0; i < length; i++) {
@@ -505,6 +503,7 @@ void mqtt_callback(char* topic, byte* payload, unsigned int length) {
   moveToPosition(percent, alexa_value);
 }
 
+// Alexa callback
 void percentBlind(uint8_t value) {
   #ifdef DEBUG
   char str[80];

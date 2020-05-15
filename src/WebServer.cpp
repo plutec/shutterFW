@@ -36,7 +36,7 @@ void handleRoot() {
   <head>\
     <title>ShutterFW</title>\
     <style>\
-      body { background-color: #cccccc; font-family: Arial, Helvetica, Sans-Serif; Color: #000088; }\
+      body { font-family: -apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, Arial, sans-serif; line-height: 1.6; color: #222; max-width: 40rem; padding: 2rem; margin: auto; background: #fafafa; } img { max-width: 100%; } a { color: #2ECC40; } h1, h2, strong { color: #111; }\
     </style>\
   </head>\
   <body>\

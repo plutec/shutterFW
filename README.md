@@ -1,5 +1,4 @@
 
-
 # Firmware curtains, blinds, shutters, ...
 This device is special because it has a microcontroler (Nuvoton, MCU from now) for leds and relays. The communication with the ESP8285 is via Serial port with AT commands.
 
@@ -12,34 +11,49 @@ And here is the result of hours of frustration with Tasmota and reversing the be
 # Supported devices
 Also, I reuse the same code for differents HW devices that I have:
 
-- KingArt
+- KingArt Q4 Curtain
 - BlitzWolf SS4 (2 ways)
+- Sonoff Dual R2 (2 ways)
 
 # Calculate up/down times
+## KingArt Q4
 The MCU manages all the things related with timming, pressing and relays, and inform to the ESP via AT commands. To configure the timming do the next:
 - Lower the blind totally.
 - Press the middle button (stop) during 4 seconds. The 3 buttons start to blink.
 - Press the up button. When the blind reach the top, press again the up button.
 
 Now, the timming to up/down the blind are configured. Remind that this behaviour is managed by the MCU, not any code in this repository related with that.
+## Other boards
+In the configuration webpage, there is an integer that must configured with the time the shutter take to down or up (the maximum of both). This time will be use to calculate the percentages of open with Alexa and HomeAssistant.
 
 # Compilation
-Copy the file config_h to config.h, change your information (WiFi network and MQTT) and compile using platform.io
+Copy the file config_h to config.h, change your board information (also pinout if is required) and compile using platform.io.
+
+This configuration is only valid for the pinout of the device and to select the device to use.
 
 # First flash
+## KingArt Q4
 This comment in Tasmota issues is very clear:
 
 NOTE that the user was wrong, the GPIO0 for flash is SW, close to GND (both soldered). The pinout "RES1" is not required.
 
 https://github.com/arendst/Tasmota/issues/5059#issuecomment-546736419
 
-# Firmware update
-When you first the first time, you can use this URL to do the next: http://<ip>:8080/update
+## Other boards
+TODO
+
+# Firmware configuration
+When you flash the device the first time. It creates an Access Point with name MIESPITO. You must connect to it with password "fibonacci" and navigate to http://192.168.4.1:8080
+
+Configure the WiFi parameters and other also and restart the device to connect to your wifi.
+
+After that, navigate to the IP that your router give to the device and configure it in: http://<ip>:8080
 
 # TODO List
+- [X] Integration of KingArt Q4 Curtain
 - [X] Integration with BlitzWolf SS4
+- [X] Integration of Sonoff Dual R2
+- [X] Dynamic parameters instead hardcoded (time up/down, wifi, mqtt config, hostname, alexa name, ...)
 - [ ] Integration with HomeAssistant
 - [ ] Code clean (hehe)
-- [X] Integration of Sonoff Dual R2
 - [ ] Add mDNS
-- [X] Dynamic parameters instead hardcoded (time up/down, wifi, mqtt config, hostname, alexa name, ...)
