@@ -57,3 +57,5 @@ After that, navigate to the IP that your router give to the device and configure
 - [ ] Integration with HomeAssistant
 - [ ] Code clean (hehe)
 - [ ] Add mDNS
+- [ ] Set different levels of open (for instance: 20%, 40%, 50%, 70%)
+- [ ] Control de device from the management webpage

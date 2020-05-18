@@ -164,7 +164,7 @@ char* Configuration::getWifiPass() {
     return storage.wifiPass;
 }
 
-void Configuration::setHostname(const char *hostname) {
+void Configuration::setHostname(const char *hostname) {    
     strncpy(storage.hostname, hostname, sizeof(storage.hostname));
     storage.new_values = true;
 }

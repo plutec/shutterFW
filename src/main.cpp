@@ -18,10 +18,6 @@
 #define HOMEASSISTANT_SUPPORT
 
 
-#define DEBUG //Comment to remove debug via MQTT
-#define DEBUG_TOPIC "persiana/debug"
-
-
 //MQTT INFO
 /*
 availability_topic: "tele/persiana_despacho/LWT" (Online/Offline)
@@ -467,10 +463,10 @@ void moveToPosition(uint8_t percent, uint8_t alexa_value) {
       digitalWrite(RELAY2, LOW);
       digitalWrite(RELAY1, HIGH);
       // This block of code is to prevent the error in alexa like: "Device does not response"
-      uint8_t ent = diff/500;
-      uint8_t dec = diff%500;
+      uint8_t ent = diff/1000;
+      uint8_t dec = diff%1000;
       for (uint8_t i=0;i<ent;++i) {
-        delay(500);
+        delay(1000);
         espalexa.loop();
       }
       delay(dec);

@@ -23,7 +23,9 @@ void ConnectWiFi_AP(bool useStaticIP = false)
 { 
    Serial.println("Go to AP mode");
    WiFi.mode(WIFI_AP);
-   while(!WiFi.softAP("MIESPITO", "fibonacci"))
+   char ap_name[17];
+   snprintf(ap_name, 17, "SHUTTERFW-%06X",(uint32_t)ESP.getChipId());
+   while(!WiFi.softAP(ap_name, "fibonacci"))
    {
      Serial.println(".");
      delay(100);
