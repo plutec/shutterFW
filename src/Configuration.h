@@ -6,6 +6,8 @@
 #ifndef Configuration_h
 #define Configuration_h
 
+#define VERSION_FW "0.0.1(shutterFW)"
+
 struct storage_struct{ 
   bool new_values = false;
   uint8_t current_position = 100;

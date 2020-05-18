@@ -83,23 +83,6 @@ long timming;
 unsigned long last_timming, first_timming;
 
 
-/*
-PASOS
-- MQTT para logging -> OK
-- MQTT Para control -> Base hecha
-- Quitar pulsacion inicial con un pause (KingArt) -> TODO
-- OTA -> OK (puerto 8080/update)
-- ACTIVAR y desactivar relés mandando comandos por MQTT
-  - Leer comandos AT desde la MCU (puerto Serial) (Necesario para mandar estado a HA)
-  - Mandar comandos AT a la MCU (puerto Serial) (Hecho, Serial.write(...))
-- Coger pulsaciones de la MCU (Para ver el estado en el que esta)
-- Pines Relés 
-    - Open
-    - Close
-
-- Alexa para control -> Falta enlazar las callback
-*/
-
 void reconnect_mqtt() {
   //uint8_t count = 5;
   if (!mqtt.connected()) {
@@ -131,6 +114,16 @@ void button_interrupt() {
 
 }
 */
+
+void networkManagement() {
+  if (!ConnectWiFi_STA(config.getWifiSsid(), config.getWifiPass(), !use_dhcp)) {
+    ConnectWiFi_AP();
+    netConnection = false;
+  } else {
+    netConnection = true;
+  }
+}
+
 void pinConfiguration() {
   #if defined(BW_SS4) || defined(SONOFF_DUAL_R2)
   pinMode(RELAY1, OUTPUT);
@@ -169,13 +162,14 @@ void setup()
   #endif
   
   pinConfiguration();
-  
+  /*
   if (!ConnectWiFi_STA(config.getWifiSsid(), config.getWifiPass(), !use_dhcp)) {
     ConnectWiFi_AP();
     netConnection = false;
   } else {
     netConnection = true;
-  }
+  }*/
+  networkManagement();
   
   // MQTT
   if (netConnection) {
@@ -202,7 +196,7 @@ void setup()
   // HomeAssistant stuff
   #if defined(HOMEASSISTANT_SUPPORT)
   if (netConnection) {
-    ha = HomeAssistant(&mqtt);
+    ha = HomeAssistant(&mqtt, &config);
   }
   #endif
 
@@ -368,9 +362,11 @@ void clickManagement() {
 }
 
 
+
 void loop() 
 {
   webserver.loop();
+
 
   // MQTT
   if (netConnection) {

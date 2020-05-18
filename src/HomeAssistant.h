@@ -9,12 +9,14 @@
 #ifndef HomeAssistant_h
 #define HomeAssistant_h
 #include "PubSubClient.h"
+#include "Configuration.h"
 //#include "config.h"
 
 
 class HomeAssistant {
     private:
-        PubSubClient* _mqtt;
+        PubSubClient* mqtt;
+        Configuration* config;
         /*Client* _client;
         uint8_t buffer[MQTT_MAX_PACKET_SIZE];
         uint16_t nextMsgId;
@@ -39,8 +41,9 @@ class HomeAssistant {
         int _state;*/
     public:
         HomeAssistant();
-        HomeAssistant(PubSubClient* mqtt);
+        HomeAssistant(PubSubClient* mqtt, Configuration* config);
         void SendDiscovery();
+        void SendState();
         void SendStatus(uint8_t percent, bool relay1, bool relay2);
         /*PubSubClient(Client& client);
         PubSubClient(IPAddress, uint16_t, Client& client);
