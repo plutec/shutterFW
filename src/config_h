@@ -1,45 +1,16 @@
-//WiFi
-//const char* hostname = "persiana_despacho";
 
-//const char* json_homeassistant = "{\"name\": \"Persiana Despacho\",\"avty_t\": \"tele/persiana_despacho/LWT\",\"pl_avail\": \"Online\",\"pl_not_avail\": \"Offline\",\"uniq_id\": \"AAAAA_status\",\"dev\": {\"ids\": [\"AAAAAA\"],\"name\": \"Persiana Despacho\",\"mdl\": \"KingArt\",\"sw\": \"0.0.1(plutecFW)\",\"mf\": \"plutecFW\"}}";
-const bool use_dhcp = false; //false == don't use DHCP, true == use DHCP
-
-IPAddress ip(192, 168, 0, 200);
-IPAddress gateway(192, 168, 0, 1);
-IPAddress subnet(255, 255, 255, 0);
-
-#define ALEXA_NAME "Kingart blind"
+#ifndef config_h
+#define config_h
 
 //Others
 #define VERSION_FW "0.0.1(shutterFW)"
 #define NAME_FW "shutterFW"
 
-
-//#define DEBUG //Comment to remove debug via MQTT
+#define DEBUG //Comment to remove debug via MQTT
 #define DEBUG_TOPIC "persiana/debug"
 
 //Available hardware devices
 //#define KINGART_Q4
-#define BW_SS4
-//#define SONOFF_DUAL_R2
-
-#ifdef KINGART_Q4
-#define ALEXA_NAME "KingArt Q4"
-#define HARDWARE_DEVICE_NAME ALEXA_NAME
-#endif
-
-#ifdef BW_SS4
-
-#define ALEXA_NAME "BW-SS4"
-#define HARDWARE_DEVICE_NAME ALEXA_NAME
-#define RELAY1 5
-#define RELAY2 12
-#define BUTTON1 2       // Change it if you solder in a different GPIO
-#define BUTTON2 15      // Change it if you solder in a different GPIO
-#define TIMEOPEN 20     // Time in seconds the blind takes to Open (ONLY INTEGER, ROUND TO NEXT INTEGER)
-#define LED 4           // Not used at this moment. Active at low.
-
-#endif
-
+#define OTHER_BOARD
 
 #endif // config_h

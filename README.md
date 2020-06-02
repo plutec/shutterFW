@@ -40,7 +40,7 @@ NOTE that the user was wrong, the GPIO0 for flash is SW, close to GND (both sold
 https://github.com/arendst/Tasmota/issues/5059#issuecomment-546736419
 
 ## Other boards
-TODO
+After install the firmware for other boards, you need to configure the pinout for each one. As example, this is the pinout I am using in my devices, but you need to adapt to the soldered pins.
 
 ### Sonoff Dual R2
 - Relay UP -> GPIO 5
