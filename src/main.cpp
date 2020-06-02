@@ -15,7 +15,7 @@
 #define PAYLOAD_STOP "BLINDSTOP"
 #define PAYLOAD_OPEN "BLINDOPEN"
 #define PAYLOAD_CLOSE "BLINDCLOSE"
-#define HOMEASSISTANT_SUPPORT
+//#define HOMEASSISTANT_SUPPORT
 
 
 //MQTT INFO
@@ -358,8 +358,8 @@ void clickManagement() {
   #endif
 }
 
-int firsttime = 1;
-
+uint16_t loop_cnt = 0;
+bool first_loop = true;
 void loop() 
 {
   webserver.loop();
@@ -387,13 +387,18 @@ void loop()
 
   // HomeAssistant stuff
   #if defined(HOMEASSISTANT_SUPPORT)
-  if (netConnection && firsttime==1) {
-    delay(1000);
-    mqtt.publish("persiana/debug", "hay conexine");
+  if (netConnection && loop_cnt==30 && first_loop) {
+    //delay(1000);
+    //mqtt.publish("persiana/debug", "hay conexine");
     ha = HomeAssistant(&mqtt, &config);
     ha.SendDiscovery();
-    firsttime=0;
+    ha.SendState();
+    first_loop=false;    
   }
+  if (netConnection && loop_cnt == 0 && !first_loop) {
+    ha.SendState();
+  }
+  loop_cnt++;
   #endif
   delay(50);
 }
