@@ -6,6 +6,7 @@ Configuration::Configuration() {}
 // eeprom management
 void Configuration::save_eeprom_data() {
   if (storage.new_values == true) {
+      //Serial.println("Hay nuevos valores");
     storage.new_values = false;
     File fd = SPIFFS.open("/conf.txt", "w");
     if (fd) {
@@ -211,4 +212,41 @@ uint8_t Configuration::getCurrentPosition() {
         storage.current_position = 100;
     }
     return storage.current_position;
+}
+
+bool Configuration::isSetPinouts() {
+    bool to_ret = true;
+    if (storage.gpio_relay_up == -1) {
+        to_ret = false;
+    }
+    if (storage.gpio_relay_down == -1) {
+        to_ret = false;
+    }
+    if (storage.gpio_button_up == -1) {
+        to_ret = false;
+    }
+    if (storage.gpio_button_down == -1) {
+        to_ret = false;
+    }
+    return to_ret;
+}
+
+void Configuration::setPinRelayUp(int8_t pin) {
+    storage.gpio_relay_up = pin;
+    storage.new_values = true;
+}
+
+void Configuration::setPinRelayDown(int8_t pin) {
+    storage.gpio_relay_down = pin;
+    storage.new_values = true;
+}
+
+void Configuration::setPinButtonUp(int8_t pin) {
+    storage.gpio_button_up = pin;
+    storage.new_values = true;
+}
+
+void Configuration::setPinButtonDown(int8_t pin) {
+    storage.gpio_button_down = pin;
+    storage.new_values = true;
 }

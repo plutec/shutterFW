@@ -24,9 +24,14 @@ struct storage_struct{
   char mqttUser[32];// = NULL;  // In case no user use NULL
   char mqttPassword[32];// = NULL; // In case no password use NULL
   // Device information
-  char hostname[32] = "ESPITO";
+  char hostname[32] = "ShutterFW";
   char alexa_name[32];
   uint32_t openTime = 10;
+  // Relays and buttons
+  int8_t gpio_relay_up = -1;
+  int8_t gpio_relay_down = -1;
+  int8_t gpio_button_up = -1;
+  int8_t gpio_button_down = -1;
 };
 
 
@@ -67,6 +72,17 @@ class Configuration {
         void setCurrentPosition(uint8_t current_position);
         uint8_t getCurrentPosition();
         
+        // Relays and button
+        bool isSetPinouts();
+        void setPinRelayUp(int8_t pin);
+        int8_t getPinRelayUp() { return storage.gpio_relay_up; }
+        void setPinRelayDown(int8_t pin);
+        int8_t getPinRelayDown() { return storage.gpio_relay_down; }
+        void setPinButtonUp(int8_t pin);
+        int8_t getPinButtonUp() { return storage.gpio_button_up; }
+        void setPinButtonDown(int8_t pin);
+        int8_t getPinButtonDown() { return storage.gpio_button_down; }
+
         // loop
         void loop();
 };

@@ -112,6 +112,82 @@ void HomeAssistant::SendDiscovery() {
     serializeJson(doc, jsonstr);*/
     char str[512];
     char str_topic[128];
+    #define NUMBER_OF_STRINGS 4
+    #define STRING_LENGTH 16
+    char topics_to_clean[NUMBER_OF_STRINGS][STRING_LENGTH] = {"_BTN_1_SINGLE", "_BTN_1_DOUBLE", "_BTN_1_TRIPLE"};
+    
+    /*
+    homeassistant/device_automation/E03583_BTN_1_SINGLE/config (null)
+homeassistant/device_automation/E03583_BTN_1_DOUBLE/config (null)
+homeassistant/device_automation/E03583_BTN_1_TRIPLE/config (null)
+homeassistant/device_automation/E03583_BTN_1_QUAD/config (null)
+homeassistant/device_automation/E03583_BTN_1_PENTA/config (null)
+homeassistant/device_automation/E03583_BTN_1_HOLD/config (null)
+homeassistant/device_automation/E03583_BTN_2_SINGLE/config (null)
+homeassistant/device_automation/E03583_BTN_2_DOUBLE/config (null)
+homeassistant/device_automation/E03583_BTN_2_TRIPLE/config (null)
+homeassistant/device_automation/E03583_BTN_2_QUAD/config (null)
+homeassistant/device_automation/E03583_BTN_2_PENTA/config (null)
+homeassistant/device_automation/E03583_BTN_2_HOLD/config (null)
+homeassistant/device_automation/E03583_BTN_3_SINGLE/config (null)
+homeassistant/device_automation/E03583_BTN_3_DOUBLE/config (null)
+homeassistant/device_automation/E03583_BTN_3_TRIPLE/config (null)
+homeassistant/device_automation/E03583_BTN_3_QUAD/config (null)
+homeassistant/device_automation/E03583_BTN_3_PENTA/config (null)
+homeassistant/device_automation/E03583_BTN_3_HOLD/config (null)
+homeassistant/device_automation/E03583_BTN_4_SINGLE/config (null)
+homeassistant/device_automation/E03583_BTN_4_DOUBLE/config (null)
+homeassistant/device_automation/E03583_BTN_4_TRIPLE/config (null)
+homeassistant/device_automation/E03583_BTN_4_QUAD/config (null)
+homeassistant/device_automation/E03583_BTN_4_PENTA/config (null)
+homeassistant/device_automation/E03583_BTN_4_HOLD/config (null)
+homeassistant/device_automation/E03583_SW_1_TOGGLE/config (null)
+homeassistant/device_automation/E03583_SW_1_HOLD/config (null)
+homeassistant/binary_sensor/E03583_SW_1/config (null)
+homeassistant/device_automation/E03583_SW_2_TOGGLE/config (null)
+homeassistant/device_automation/E03583_SW_2_HOLD/config (null)
+homeassistant/binary_sensor/E03583_SW_2/config (null)
+homeassistant/device_automation/E03583_SW_3_TOGGLE/config (null)
+homeassistant/device_automation/E03583_SW_3_HOLD/config (null)
+homeassistant/binary_sensor/E03583_SW_3/config (null)
+homeassistant/device_automation/E03583_SW_4_TOGGLE/config (null)
+homeassistant/device_automation/E03583_SW_4_HOLD/config (null)
+homeassistant/binary_sensor/E03583_SW_4/config (null)
+homeassistant/device_automation/E03583_SW_5_TOGGLE/config (null)
+homeassistant/device_automation/E03583_SW_5_HOLD/config (null)
+homeassistant/binary_sensor/E03583_SW_5/config (null)
+homeassistant/device_automation/E03583_SW_6_TOGGLE/config (null)
+homeassistant/device_automation/E03583_SW_6_HOLD/config (null)
+homeassistant/binary_sensor/E03583_SW_6/config (null)
+homeassistant/device_automation/E03583_SW_7_TOGGLE/config (null)
+homeassistant/device_automation/E03583_SW_7_HOLD/config (null)
+homeassistant/binary_sensor/E03583_SW_7/config (null)
+homeassistant/device_automation/E03583_SW_8_TOGGLE/config (null)
+homeassistant/device_automation/E03583_SW_8_HOLD/config (null)
+homeassistant/binary_sensor/E03583_SW_8/config (null)
+homeassistant/light/E03583_LI_1/config (null)
+homeassistant/light/E03583_LI_2/config (null)
+homeassistant/light/E03583_LI_3/config (null)
+homeassistant/switch/E03583_RL_3/config (null)
+homeassistant/light/E03583_LI_4/config (null)
+homeassistant/switch/E03583_RL_4/config (null)
+homeassistant/light/E03583_LI_5/config (null)
+homeassistant/switch/E03583_RL_5/config (null)
+homeassistant/light/E03583_LI_6/config (null)
+homeassistant/switch/E03583_RL_6/config (null)
+homeassistant/light/E03583_LI_7/config (null)
+homeassistant/switch/E03583_RL_7/config (null)
+homeassistant/light/E03583_LI_8/config (null)
+homeassistant/switch/E03583_RL_8/config (null)
+*/ 
+    this->mqtt->publish("persiana/debug", "por aqui vamos");
+    delay(500);
+
+    for (uint8_t i=0;i<2;++i) {
+        snprintf(str_topic, 128, "homeassistant/device_automation/%06X%s/config", (uint32_t)ESP.getChipId(), topics_to_clean[i]);
+        this->mqtt->publish(str_topic, NULL);
+    }
+
     snprintf(str, 512, "{\"name\":\"%s Relay1\",\"stat_t\":\"tele/%s/STATE\",\"avty_t\":\"tele/%s/LWT\",\"pl_avail\":\"Online\",\"pl_not_avail\":\"Offline\",\"cmd_t\":\"cmnd/%s/POWER1\",\"val_tpl\":\"{{value_json.POWER1}}\",\"pl_off\":\"OFF\",\"pl_on\":\"ON\",\"uniq_id\":\"%06X_RL_1\",\"dev\":{\"ids\":[\"%06X\"]}",
         config->getHostname(), config->getHostname(), config->getHostname(), config->getHostname(), (uint32_t)ESP.getChipId(), (uint32_t)ESP.getChipId());
     snprintf(str_topic, 128, "homeassistant/switch/%06X_RL_1/config", (uint32_t)ESP.getChipId());
@@ -150,7 +226,7 @@ void HomeAssistant::SendDiscovery() {
     this->_mqtt->publish("homeassistant/cover/97669F_status/config", jsonstr.c_str());
     */
     
-    snprintf(str, 512, "{\"name\":\"%s status\",\"stat_t\":\"tele/%s/HASS_STATE\",\"avty_t\":\"tele/%s/LWT\",\"pl_avail\":\"Online\",\"pl_not_avail\":\"Offline\",\"json_attr_t\":\"tele/%s/HASS_STATE\",\"unit_of_meas\":\"%\",\"val_tpl\":\"{{value_json['RSSI']}}\",\"ic\":\"mdi:information-outline\",\"uniq_id\":\"%06X_status\",\"dev\":{\"ids\":[\"%06X\"],\"name\":\"%s\",\"mdl\":\"%s\",\"sw\":\"%s\",\"mf\":\"ShutterFW\"}}",
+    snprintf(str, 512, "{\"name\":\"%s status\",\"stat_t\":\"tele/%s/HASS_STATE\",\"avty_t\":\"tele/%s/LWT\",\"pl_avail\":\"Online\",\"pl_not_avail\":\"Offline\",\"json_attr_t\":\"tele/%s/HASS_STATE\",\"unit_of_meas\":\"%%\",\"val_tpl\":\"{{value_json['RSSI']}}\",\"ic\":\"mdi:information-outline\",\"uniq_id\":\"%06X_status\",\"dev\":{\"ids\":[\"%06X\"],\"name\":\"%s\",\"mdl\":\"%s\",\"sw\":\"%s\",\"mf\":\"ShutterFW\"}}",
         config->getHostname(), config->getHostname(), config->getHostname(), config->getHostname(), (uint32_t)ESP.getChipId(), (uint32_t)ESP.getChipId(), config->getHostname(), "wachufrito TODO", VERSION_FW);
     snprintf(str_topic, 128, "homeassistant/sensor/%06X_status/config", (uint32_t)ESP.getChipId());
     this->mqtt->publish(str_topic, str);

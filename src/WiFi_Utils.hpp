@@ -2,12 +2,12 @@
 
 bool wifiAP = false;
 
-bool ConnectWiFi_STA(const char *ssid, const char *password, bool useStaticIP = false)
+bool ConnectWiFi_STA(const char *ssid, const char *password)
 {
   //Serial.println("");
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
-  if(useStaticIP) WiFi.config(ip, gateway, subnet);
+  //if(useStaticIP) WiFi.config(ip, gateway, subnet);
   uint8 count = 100;
   while ((WiFi.status() != WL_CONNECTED) && count>0) 
   { 
@@ -22,7 +22,7 @@ bool ConnectWiFi_STA(const char *ssid, const char *password, bool useStaticIP = 
   return false;
 }
 
-void ConnectWiFi_AP(bool useStaticIP = false)
+void ConnectWiFi_AP()
 { 
   if (wifiAP == false) {
     Serial.println("Go to AP mode");
@@ -34,8 +34,7 @@ void ConnectWiFi_AP(bool useStaticIP = false)
       Serial.println(".");
       delay(100);
     }
-    //if(useStaticIP) WiFi.softAPConfig(ip, gateway, subnet);
-    WiFi.softAPConfig(IPAddress(192,168,4,1), IPAddress(192,168,4,1), subnet);
+    WiFi.softAPConfig(IPAddress(192,168,4,1), IPAddress(192,168,4,1), IPAddress(255, 255, 255, 0));
     wifiAP = true;
   }
 }

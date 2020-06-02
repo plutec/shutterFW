@@ -45,7 +45,7 @@ void mqtt_callback(char* topic, byte* payload, unsigned int length);
 //ALEXA CALLBACK
 void percentBlind(uint8_t value);
 
-#if defined(BW_SS4) || defined(SONOFF_DUAL_R2)
+#if defined(OTHER_BOARD)
 //uint8 current_position = 80; //TODO. At startup it takes 100 position (totally open). It can update later from retained message in MQTT or from Flash memory
 unsigned long milliseconds_per_percent;
 bool state_btn1 = false;
@@ -91,7 +91,6 @@ void reconnect_mqtt() {
       mqtt.publish(DEBUG_TOPIC, "Conectado de nuevo");
       mqtt.publish(DEBUG_TOPIC, config.getHostname());
       #endif
-      //mqtt.publish("tele/persiana_despacho/LWT", "Online", true); // Retained TODO mover a HA
       //subscribe to:
       // cmnd/<device_name>/shutterposition
       mqtt.subscribe(subscribe_topic);
@@ -116,7 +115,7 @@ void button_interrupt() {
 */
 
 void networkManagement() {
-  if (!ConnectWiFi_STA(config.getWifiSsid(), config.getWifiPass(), !use_dhcp)) {
+  if (!ConnectWiFi_STA(config.getWifiSsid(), config.getWifiPass())) {
     ConnectWiFi_AP();
     netConnection = false;
   } else {
@@ -125,13 +124,13 @@ void networkManagement() {
 }
 
 void pinConfiguration() {
-  #if defined(BW_SS4) || defined(SONOFF_DUAL_R2)
-  pinMode(RELAY1, OUTPUT);
-  pinMode(RELAY2, OUTPUT);
+  #if defined(OTHER_BOARD)
+  pinMode(config.getPinRelayUp(), OUTPUT);
+  pinMode(config.getPinRelayDown(), OUTPUT);
   //pinMode(LED, OUTPUT);
   //digitalWrite(LED, LOW);
-  pinMode(BUTTON1, INPUT);
-  pinMode(BUTTON2, INPUT);
+  pinMode(config.getPinButtonUp(), INPUT);
+  pinMode(config.getPinButtonDown(), INPUT);
   //attachInterrupt(digitalPinToInterrupt(BUTTON1), button_interrupt, RISING);
   #endif
 }
@@ -139,7 +138,7 @@ void pinConfiguration() {
 void alexaConfiguration() {
   device = new EspalexaDevice(config.getAlexaName(), percentBlind);
   espalexa.addDevice(device); //and then add them
-  #if defined(BW_SS4) || defined(SONOFF_DUAL_R2)
+  #if defined(OTHER_BOARD)
   device->setPercent(config.getCurrentPosition()); //this allows you to e.g. update their state value at any time!
   #endif
 }
@@ -154,19 +153,18 @@ void setup()
   #else
   Serial.begin(115200);
   #endif
-
+ 
   config.begin();
-  
-  #if defined(BW_SS4) || defined(SONOFF_DUAL_R2)
+  #if defined(OTHER_BOARD)
     milliseconds_per_percent = config.getOpenTime()*10; // Time take to open or close 1 percent (in milliseconds).
   #endif
-  
+ 
   pinConfiguration();
   /*
   if (!ConnectWiFi_STA(config.getWifiSsid(), config.getWifiPass(), !use_dhcp)) {
     ConnectWiFi_AP();
     netConnection = false;
-  } else {
+  } else {SONOFF_DUAL_R2
     netConnection = true;
   }*/
   networkManagement();
@@ -189,22 +187,15 @@ void setup()
     alexaConfiguration();
     espalexa.begin();
   }
-  
+
   // Other stuff
   sprintf(subscribe_topic, "cmnd/%s/shutterposition", config.getHostname());
-
-  // HomeAssistant stuff
-  #if defined(HOMEASSISTANT_SUPPORT)
-  if (netConnection) {
-    ha = HomeAssistant(&mqtt, &config);
-  }
-  #endif
-
-
-  
+  Serial.println("Pasa subscribe topic");
+  Serial.println(subscribe_topic);
+ 
 }
 
-#if defined(BW_SS4) || defined(SONOFF_DUAL_R2)
+#if defined(OTHER_BOARD)
 /**
  * moveOrStop: true (move), false (stop)
  * relay: Pin to put HIGH (move true), or LOW (move false)
@@ -246,19 +237,20 @@ void clickManagement() {
       
     }
   #endif
-  #if defined(BW_SS4) || defined(SONOFF_DUAL_R2)
+  #if defined(OTHER_BOARD)
   // Button 1
   //bool pinValue = digitalRead(BUTTON1);
 
-  if (digitalRead(BUTTON1) == LOW) { // Remind this is active at LOW
+  if (digitalRead(config.getPinButtonUp()) == LOW) { // Remind this is active at LOW
     //Esto es para subir, tenemos la posición actual en "current_position". Sabemos que hasta el 100% le queda 100-current_position (pongamos 20%).
     //En subir ese 20% tarda 20*milliseconds_per_percent. Pongo un tope de estos millis y retrocemos hasta que llegue a 0.
     if (state_btn1 == false && config.getCurrentPosition() < 100) {
       #ifdef DEBUG
       mqtt.publish(DEBUG_TOPIC, "Activa relé 1");
+      Serial.println("Activa rele1");
       delay(100);
       #endif
-      move(true, RELAY1);
+      move(true, config.getPinRelayUp());
       state_btn1 = true;
       //timming = millis(); //Enable timming
       first_timming = millis(); //Time of activation
@@ -269,6 +261,7 @@ void clickManagement() {
     } else { 
       #ifdef DEBUG
         mqtt.publish(DEBUG_TOPIC, "Relé1 ELSE");
+        Serial.println("Rele1 else");
         //delay(100);
       #endif
       timming = timming-(millis()-last_timming);
@@ -280,12 +273,13 @@ void clickManagement() {
       delay(100);
       #endif
       if (timming <= 0) { //Ha llegado al final, tenemos que parar!
-        move(false, RELAY1);
+        move(false, config.getPinRelayUp());
         state_btn1 = false;
         config.setCurrentPosition(100);
         device->setPercent(100);
         #ifdef DEBUG
         mqtt.publish(DEBUG_TOPIC, "Relé1 ha llegado al final, tenemos que parar!");
+        Serial.println("Rele1 ha llegado al final, paramos");
         //delay(100);
         #endif
       }
@@ -294,9 +288,10 @@ void clickManagement() {
     if (state_btn1 == true) { //El usuario ha desactivado el relé
       #ifdef DEBUG
       mqtt.publish(DEBUG_TOPIC, "DESactiva relé 1");
+      Serial.println("Desactiva relé 1");
       delay(100);
       #endif
-      move(false, RELAY1);
+      move(false, config.getPinRelayUp());
       state_btn1 = false;
       timming = timming-(millis()-last_timming);
       unsigned long moving_time = millis() - first_timming;
@@ -311,13 +306,14 @@ void clickManagement() {
     }
   }
   // Button 2
-  if (digitalRead(BUTTON2) == LOW) { // Remind this is active at LOW
+  if (digitalRead(config.getPinButtonDown()) == LOW) { // Remind this is active at LOW
     if (state_btn2 == false && config.getCurrentPosition() > 0) {
       #ifdef DEBUG
       mqtt.publish(DEBUG_TOPIC, "Activa relé 2");
+      Serial.println("Activa rele2");
       delay(100);
       #endif
-      move(true, RELAY2);
+      move(true, config.getPinRelayDown());
       state_btn2 = true;
       //timming = millis(); //Enable timming
       first_timming = millis(); //Time of activation
@@ -329,7 +325,7 @@ void clickManagement() {
       timming = timming-(millis()-last_timming);
       last_timming = millis();
       if (timming <= 0) { //Ha llegado al final, tenemos que parar!
-        move(false, RELAY2);
+        move(false, config.getPinRelayDown());
         state_btn2 = false;
         config.setCurrentPosition(0);
         device->setPercent(0);
@@ -339,9 +335,10 @@ void clickManagement() {
     if (state_btn2 == true) { //El usuario ha desactivado el relé
       #ifdef DEBUG
       mqtt.publish(DEBUG_TOPIC, "DESactiva relé 2");
+      Serial.println("Desactiva rele2");
       delay(100);
       #endif
-      move(false, RELAY2);
+      move(false, config.getPinRelayDown());
       state_btn2 = false;
       timming = timming-(millis()-last_timming);
       unsigned long moving_time = millis() - first_timming;
@@ -361,12 +358,11 @@ void clickManagement() {
   #endif
 }
 
-
+int firsttime = 1;
 
 void loop() 
 {
   webserver.loop();
-
 
   // MQTT
   if (netConnection) {
@@ -376,20 +372,30 @@ void loop()
     mqtt.loop();
   }
 
-  // Click management. Also for KingArt Serial communication (feedback from physical buttons)  
-  clickManagement();
+  // Click management. Also for KingArt Serial communication (feedback from physical buttons)
+  if (config.isSetPinouts()) {
+    clickManagement();
+  }
 
   // Alexa
   if (netConnection) {
     espalexa.loop();
   }
-  
+
   // Save configuration data if necessary
   config.loop();
 
-  // HomeAssistant (TODO)
-  /*ha.SendDiscovery();
-  delay(500);*/
+  // HomeAssistant stuff
+  #if defined(HOMEASSISTANT_SUPPORT)
+  if (netConnection && firsttime==1) {
+    delay(1000);
+    mqtt.publish("persiana/debug", "hay conexine");
+    ha = HomeAssistant(&mqtt, &config);
+    ha.SendDiscovery();
+    firsttime=0;
+  }
+  #endif
+  delay(50);
 }
 
 void moveToPosition(uint8_t percent, uint8_t alexa_value) {
@@ -411,7 +417,7 @@ void moveToPosition(uint8_t percent, uint8_t alexa_value) {
     Serial.print(str);
     Serial.flush();
   #endif
-  #if defined(BW_SS4) || defined(SONOFF_DUAL_R2)
+  #if defined(OTHER_BOARD)
     //percent = 100-percent;
     if (config.getCurrentPosition() == percent) { //In the requested position
       //Do nothing
@@ -426,8 +432,8 @@ void moveToPosition(uint8_t percent, uint8_t alexa_value) {
       //mqtt.publish(DEBUG_TOPIC, str);
         delay(50);
       // First, assure RELAY1 is stopped
-      digitalWrite(RELAY1, LOW);
-      digitalWrite(RELAY2, HIGH);
+      digitalWrite(config.getPinRelayUp(), LOW);
+      digitalWrite(config.getPinRelayDown(), HIGH);
       // This block of code is to prevent the error in alexa like: "Device does not response"
       uint8_t ent = diff/500;
       uint8_t dec = diff%500;
@@ -439,7 +445,7 @@ void moveToPosition(uint8_t percent, uint8_t alexa_value) {
       espalexa.loop();
       //delay(diff);
       // End of the block of alexa problem
-      digitalWrite(RELAY2, LOW);
+      digitalWrite(config.getPinRelayDown(), LOW);
       /*digitalWrite(LED, LOW);
       delayMicroseconds(diff);
       digitalWrite(LED, HIGH);*/
@@ -456,8 +462,8 @@ void moveToPosition(uint8_t percent, uint8_t alexa_value) {
       delay(50);
       #endif
       // First, assure RELAY2 is stopped
-      digitalWrite(RELAY2, LOW);
-      digitalWrite(RELAY1, HIGH);
+      digitalWrite(config.getPinRelayDown(), LOW);
+      digitalWrite(config.getPinRelayUp(), HIGH);
       // This block of code is to prevent the error in alexa like: "Device does not response"
       uint8_t ent = diff/1000;
       uint8_t dec = diff%1000;
@@ -469,7 +475,7 @@ void moveToPosition(uint8_t percent, uint8_t alexa_value) {
       espalexa.loop();
       //delay(diff);
       // End of the block of alexa problem
-      digitalWrite(RELAY1, LOW);
+      digitalWrite(config.getPinRelayUp(), LOW);
     }
     config.setCurrentPosition(percent);
     //device->setPercent(percent);

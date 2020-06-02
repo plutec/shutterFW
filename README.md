@@ -42,6 +42,26 @@ https://github.com/arendst/Tasmota/issues/5059#issuecomment-546736419
 ## Other boards
 TODO
 
+### Sonoff Dual R2
+- Relay UP -> GPIO 5
+- Relay DOWN -> GPIO 12
+- Button UP -> GPIO 0
+- Button DOWN -> GPIO 9
+
+
+### BW SS4
+- Relay UP -> GPIO 12
+- Relay DOWN -> GPIO 5
+- Button UP -> GPIO 14 
+- Button DOWN -> GPIO 2
+- LED -> GPIO 5
+
+### MS-108
+- Relay Up -> GPIO 12
+- Relay Down -> GPIO 14
+- Button Up -> GPIO 4
+- Button Down -> GPIO 5
+
 # Firmware configuration
 When you flash the device the first time. It creates an Access Point with name MIESPITO. You must connect to it with password "fibonacci" and navigate to http://192.168.4.1:8080
 

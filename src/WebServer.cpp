@@ -31,6 +31,25 @@ void WebServer::loop() {
     httpServer.handleClient();
 }
 
+String generate_options(uint8_t selected) {
+  String to_ret;
+  for (uint8_t i=0;i<17;++i) {
+    if (i<6 || (i>8 && i!=11)) { // Invalids: 6, 7, 8, 11
+      
+        to_ret += String("<option value=\"");
+        to_ret += i;
+        if (i==selected){
+          to_ret += String("\" selected>GPIO");
+        } else {
+          to_ret += String("\">GPIO");
+        }
+        to_ret += i;
+        to_ret += String("</option>");
+    }
+  }
+  return to_ret;
+}
+
 void handleRoot() {
   String postForms = "<html>\
   <head>\
@@ -64,6 +83,14 @@ void handleRoot() {
       SSID: <input type=\"text\" name=\"wifi_ssid\" value=\""+String(configuration->getWifiSsid())+"\"><br>\
       WiFi Password: <input type=\"password\" name=\"wifi_pass\" value=\"\"><br>\
       <input type=\"submit\" value=\"Change Wifi information\">\
+    </form>\
+    <h1>Pinout (be careful!)</h1><br>\
+    <form method=\"post\" enctype=\"application/x-www-form-urlencoded\" action=\"/p\">\
+      Relay UP: <select name=\"relay_up\">"+generate_options(configuration->getPinRelayUp())+"</select><br>\
+      Relay DOWN: <select name=\"relay_down\">"+generate_options(configuration->getPinRelayDown())+"</select><br>\
+      Button UP: <select name=\"button_up\">"+generate_options(configuration->getPinButtonUp())+"</select><br>\
+      Button DOWN: <select name=\"button_down\">"+generate_options(configuration->getPinButtonDown())+"</select><br>\
+      <input type=\"submit\" value=\"Change Pinout\">\
     </form>\
   </body>\
 </html>";
@@ -121,6 +148,18 @@ void handleFormMQTT() {
       }
       if (httpServer.argName(i) == "open_time") {
         configuration->setOpenTime(httpServer.arg(i).toInt());
+      }
+      if (httpServer.argName(i) == "relay_up") {
+        configuration->setPinRelayUp(httpServer.arg(i).toInt());
+      }
+      if (httpServer.argName(i) == "relay_down") {
+        configuration->setPinRelayDown(httpServer.arg(i).toInt());
+      }
+      if (httpServer.argName(i) == "button_up") {
+        configuration->setPinButtonUp(httpServer.arg(i).toInt());
+      }
+      if (httpServer.argName(i) == "button_down") {
+        configuration->setPinButtonDown(httpServer.arg(i).toInt());
       }
     }
     httpServer.send(200, "text/plain", message);
