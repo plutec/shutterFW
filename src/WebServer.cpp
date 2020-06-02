@@ -65,9 +65,11 @@ void handleRoot() {
     <h1>Node information</h1><br>\
     <form method=\"post\" enctype=\"application/x-www-form-urlencoded\" action=\"/p\">\
       Hostname: <input type=\"text\" name=\"hostname\" value=\""+String(configuration->getHostname())+"\"><br>\
-      Alexa name: <input type=\"text\" name=\"alexa_name\" value=\""+String(configuration->getAlexaName())+"\"><br>\
-      Open/close time: <input type=\"text\" name=\"open_time\" value=\""+String(configuration->getOpenTime())+"\"> seconds (Not valid for KingArt Q4)<br>\
-      Current position: "+String(configuration->getCurrentPosition())+"<br>\
+      Alexa name: <input type=\"text\" name=\"alexa_name\" value=\""+String(configuration->getAlexaName())+"\"><br>";
+      #ifdef OTHER_BOARD
+      postForms += "Open/close time: <input type=\"text\" name=\"open_time\" value=\""+String(configuration->getOpenTime())+"\"> seconds<br>";
+      #endif
+      postForms += "Current position: "+String(configuration->getCurrentPosition())+"<br>\
       <input type=\"submit\" value=\"Change general information\">\
     </form>\
     <h1>MQTT information</h1><br>\
@@ -83,15 +85,20 @@ void handleRoot() {
       SSID: <input type=\"text\" name=\"wifi_ssid\" value=\""+String(configuration->getWifiSsid())+"\"><br>\
       WiFi Password: <input type=\"password\" name=\"wifi_pass\" value=\"\"><br>\
       <input type=\"submit\" value=\"Change Wifi information\">\
-    </form>\
-    <h1>Pinout (be careful!)</h1><br>\
+    </form>";
+    #ifdef OTHER_BOARD
+    postForms += "<h1>Pinout (be careful!)</h1><br>\
     <form method=\"post\" enctype=\"application/x-www-form-urlencoded\" action=\"/p\">\
       Relay UP: <select name=\"relay_up\">"+generate_options(configuration->getPinRelayUp())+"</select><br>\
       Relay DOWN: <select name=\"relay_down\">"+generate_options(configuration->getPinRelayDown())+"</select><br>\
       Button UP: <select name=\"button_up\">"+generate_options(configuration->getPinButtonUp())+"</select><br>\
       Button DOWN: <select name=\"button_down\">"+generate_options(configuration->getPinButtonDown())+"</select><br>\
       <input type=\"submit\" value=\"Change Pinout\">\
-    </form>\
+    </form><br>";
+    #else
+    postForms += "<br>Compiled for KingArt Curtain Q4<br>";
+    #endif
+    postForms += "Version:\
   </body>\
 </html>";
 

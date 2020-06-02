@@ -2,6 +2,7 @@
 #include <ESP8266HTTPUpdateServer.h>
 #include <Arduino.h>
 #include "Configuration.h"
+#include "config.h"
 
 void handleRoot();
 void handleRestart();
