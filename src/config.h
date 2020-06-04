@@ -3,7 +3,7 @@
 #define config_h
 
 //Others
-#define VERSION_FW "0.0.1(shutterFW)"
+#define VERSION_FW "0.5(shutterFW)"
 #define NAME_FW "shutterFW"
 
 #define DEBUG //Comment to remove debug via MQTT

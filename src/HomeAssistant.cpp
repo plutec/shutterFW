@@ -26,7 +26,7 @@ void HomeAssistant::SendState() {
 
     // tele/persiana_inventada1/LWT Online
     snprintf(str_topic, 128, "tele/%s/LWT", config->getHostname());
-    this->mqtt->publish(str_topic, "Online");
+    this->mqtt->publish(str_topic, "Online", true); //Retained
 
     // cmnd/persiana_inventada1/POWER (null)
     snprintf(str_topic, 128, "cmnd/%s/POWER", config->getHostname());
@@ -55,19 +55,39 @@ void HomeAssistant::SendState() {
 
         // stat/persiana_inventada1/POWER1 OFF
         snprintf(str_topic, 128, "stat/%s/POWER%d", config->getHostname(), i);
-        this->mqtt->publish(str_topic, "OFF");
+        this->mqtt->publish(str_topic, "OFF", true); //Retained
     }
 
-    // tele/persiana_inventada1/STATE {"Time":"2020-05-18T22:53:39","Uptime":"0T00:00:10","UptimeSec":10,"Heap":27,"SleepMode":"Dynamic","Sleep":50,"LoadAvg":19,"MqttCount":1,"POWER1":"OFF","POWER2":"OFF","Wifi":{"AP":1,"SSId":"plutec_IoT","BSSId":"2A:E8:29:FE:75:F3","Channel":6,"RSSI":82,"Signal":-59,"LinkCount":1,"Downtime":"0T00:00:04"}}
-    // Not now
+    // tele/persiana_inventada1/STATE {"Time":"2020-05-18T22:53:39....
+    /*snprintf(str, 512, "{\"Time\":\"2020-05-18T22:53:39\",\"Uptime\":\"0T00:00:10\",\"UptimeSec\":10,\"Heap\":27,\"SleepMode\":\"Dynamic\",\"Sleep\":50,\"LoadAvg\":19,\"MqttCount\":1,\"POWER1\":\"OFF\",\"POWER2\":\"OFF\",\"Wifi\":{\"AP\":1,\"SSId\":\"Test_IoT\",\"BSSId\":\"2E:E8:30:F2:73:F7\",\"Channel\":6,\"RSSI\":82,\"Signal\":-59,\"LinkCount\":1,\"Downtime\":\"0T00:00:04\"}}");
+    snprintf(str_topic, 128, "tele/%s/STATE", config->getHostname());
+    this->mqtt->publish(str_topic, str);*/
 
     // tele/persiana_inventada1/SENSOR {"Time":"2020-05-18T22:53:39","Shutter1":{"Position":0,"Direction":0,"Target":0}}
-    snprintf(str, 512, "{\"Time\":\"2020-05-18T22:53:39\",\"Shutter1\":{\"Position\":0,\"Direction\":0,\"Target\":0}}");
+    snprintf(str, 512, "{\"Shutter1\":{\"Position\":%d,\"Direction\":0,\"Target\":%d}}", 
+                        config->getCurrentPosition(), config->getCurrentPosition());
     snprintf(str_topic, 128, "tele/%s/SENSOR", config->getHostname());
     this->mqtt->publish(str_topic, str);
-
-
     //El STATE se manda cada 5 minutos aproximadamente, junto con el SENSOR, así que no se manda en el SendDiscovery
+}
+/**
+ * percent: current position
+ * target: final objective position (possible 0 or 100)
+ * direction: 1 UP, -1 DOWN, 0 STOP.
+ */
+void HomeAssistant::SendUpdate(uint8_t percent, uint8_t target, int8_t direction) {
+    char str[512];
+    char str_topic[128];
+    uint32_t chip_id = (uint32_t)ESP.getChipId();
+
+    // stat/persiana_inventada1/RESULT {"Shutter1":{"Position":54,"Direction":1,"Target":100}}
+    snprintf(str_topic, 128, "stat/%s/RESULT", config->getHostname());
+    snprintf(str, 512, "{\"Shutter1\":{\"Position\":%d,\"Direction\":%d,\"Target\":%d}}", percent, direction, target);
+    this->mqtt->publish(str_topic, str);
+}
+
+void HomeAssistant::ManageSubscription() {
+
 }
 
 void HomeAssistant::SendDiscovery() {
@@ -363,7 +383,8 @@ Command topic: homeassistant/cover/despacho_giu/set
  * 
  * 
  * */
-void HomeAssistant::SendStatus(uint8_t percent, bool relay1, bool relay2){ 
+
+//void HomeAssistant::SendStatus(uint8_t percent, bool relay1, bool relay2){ 
     // El status se manda cuando hay movimiento.
     /*
     stat/persiana_inventada1/RESULT {"POWER1":"ON"}
@@ -380,6 +401,6 @@ stat/persiana_inventada1/SHUTTER1 16
 stat/persiana_inventada1/RESULT {"Shutter1":{"Position":16,"Direction":0,"Target":16}}
 */
 
-}
+//}
 
 

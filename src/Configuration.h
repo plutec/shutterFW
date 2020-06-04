@@ -32,6 +32,8 @@ struct storage_struct{
   int8_t gpio_relay_down = -1;
   int8_t gpio_button_up = -1;
   int8_t gpio_button_down = -1;
+  // HomeAssistant
+  bool ha_enabled = false;
 };
 
 
@@ -83,6 +85,10 @@ class Configuration {
         void setPinButtonDown(int8_t pin);
         int8_t getPinButtonDown() { return storage.gpio_button_down; }
 
+        // HomeAssistant
+        bool homeAssistantEnabled() { return storage.ha_enabled; }
+        void setHomeAssistantEnabled(bool stat) { storage.ha_enabled = stat; storage.new_values = true;}
+        
         // loop
         void loop();
 };

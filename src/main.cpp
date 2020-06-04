@@ -5,7 +5,6 @@
 
 #include "config.h"  // Sustituir con datos de vuestra red
 #include "WiFi_Utils.hpp"
-//#include <WiFiUdp.h> //TODO Borrar, ya ha hecho su trabajo
 #include <ESP8266HTTPUpdateServer.h>
 //#include <ESP8266WebServer.h>
 #include "HomeAssistant.h"
@@ -46,7 +45,6 @@ void mqtt_callback(char* topic, byte* payload, unsigned int length);
 void percentBlind(uint8_t value);
 
 #if defined(OTHER_BOARD)
-//uint8 current_position = 80; //TODO. At startup it takes 100 position (totally open). It can update later from retained message in MQTT or from Flash memory
 unsigned long milliseconds_per_percent;
 bool state_btn1 = false;
 bool state_btn2 = false;
@@ -54,17 +52,6 @@ bool state_btn2 = false;
 bool netConnection = false;
 
 
-/*
-- Los botones activan la MCU y mandan el activo/inactivo a los relés
-- El ESP debe mandar info a la MCU para activar y desactivar botones y relés
-*/
-
-//TODO
-/*
-- Cuando la MCU dice: AT+UPDATE="switch":"on","setclose":51   Hay que coger el valor y si ha cambiado, actualizarlo en HA mandado al topic.
-
-*/
-WiFiUDP Udp;
 Configuration config;
 WebServer webserver;
 WiFiClient espClient;
@@ -72,13 +59,12 @@ PubSubClient mqtt(espClient);
 //ESP8266WebServer httpServer(8080);
 //ESP8266HTTPUpdateServer httpUpdater;
 Espalexa espalexa;
-#ifdef HOMEASSISTANT_SUPPORT
 HomeAssistant ha;
-#endif
+
 
 EspalexaDevice* device;
 
-char subscribe_topic[64];
+char subscribe_topic[2][64];
 long timming;
 unsigned long last_timming, first_timming;
 
@@ -93,7 +79,8 @@ void reconnect_mqtt() {
       #endif
       //subscribe to:
       // cmnd/<device_name>/shutterposition
-      mqtt.subscribe(subscribe_topic);
+      mqtt.subscribe(subscribe_topic[0]);
+      mqtt.subscribe(subscribe_topic[1]);
     } else {
       // Wait 5 seconds before retrying
       delay(1000);
@@ -156,7 +143,7 @@ void setup()
  
   config.begin();
   #if defined(OTHER_BOARD)
-    milliseconds_per_percent = config.getOpenTime()*10; // Time take to open or close 1 percent (in milliseconds).
+  milliseconds_per_percent = config.getOpenTime()*10; // Time take to open or close 1 percent (in milliseconds).
   #endif
  
   pinConfiguration();
@@ -189,10 +176,8 @@ void setup()
   }
 
   // Other stuff
-  sprintf(subscribe_topic, "cmnd/%s/shutterposition", config.getHostname());
-  Serial.println("Pasa subscribe topic");
-  Serial.println(subscribe_topic);
- 
+  sprintf(subscribe_topic[0], "cmnd/%s/Backlog", config.getHostname());
+  sprintf(subscribe_topic[1], "cmnd/%s/ShutterPosition1", config.getHostname());
 }
 
 #if defined(OTHER_BOARD)
@@ -212,6 +197,7 @@ void move(bool moveOrStop, uint8_t relay) {
 #endif
 
 void clickManagement() {
+  uint8_t current_percent;
   #ifdef KINGART_Q4
     if (Serial.available()>0) {
       String st = Serial.readStringUntil('\n');
@@ -244,10 +230,10 @@ void clickManagement() {
   if (digitalRead(config.getPinButtonUp()) == LOW) { // Remind this is active at LOW
     //Esto es para subir, tenemos la posición actual en "current_position". Sabemos que hasta el 100% le queda 100-current_position (pongamos 20%).
     //En subir ese 20% tarda 20*milliseconds_per_percent. Pongo un tope de estos millis y retrocemos hasta que llegue a 0.
-    if (state_btn1 == false && config.getCurrentPosition() < 100) {
+    if (state_btn1 == false && config.getCurrentPosition() < 100) { // It's the first loop after press buttonup
       #ifdef DEBUG
-      mqtt.publish(DEBUG_TOPIC, "Activa relé 1");
-      Serial.println("Activa rele1");
+      mqtt.publish(DEBUG_TOPIC, "Enable relayUp");
+      Serial.println("Enable relayUp");
       delay(100);
       #endif
       move(true, config.getPinRelayUp());
@@ -255,10 +241,11 @@ void clickManagement() {
       //timming = millis(); //Enable timming
       first_timming = millis(); //Time of activation
       timming = (100-config.getCurrentPosition())*milliseconds_per_percent; //Time to reach 100%
-      last_timming = millis(); 
+      last_timming = millis();
+
     } else if (config.getCurrentPosition() == 100){ //Está ya activo y ha llegado al final
       //Do nothing
-    } else { 
+    } else { // Second and following loops after press buttonUP
       #ifdef DEBUG
         mqtt.publish(DEBUG_TOPIC, "Relé1 ELSE");
         Serial.println("Rele1 else");
@@ -266,15 +253,24 @@ void clickManagement() {
       #endif
       timming = timming-(millis()-last_timming);
       last_timming = millis();
+      // HomeAssistant stuff
+      if (config.homeAssistantEnabled()) {
+        current_percent = config.getCurrentPosition()+(last_timming-first_timming)/milliseconds_per_percent;
+        ha.SendUpdate(current_percent, 100, 1);
+      }
+    
       #ifdef DEBUG
-      char str_debug[256];
-      sprintf(str_debug, "timming %lu last_timming %lu \n", timming, last_timming );
-      mqtt.publish(DEBUG_TOPIC, str_debug);
-      delay(100);
+      //char str_debug[256];
+      //sprintf(str_debug, "timming %lu last_timming %lu \n", timming, last_timming );
+      //mqtt.publish(DEBUG_TOPIC, str_debug);
+      //delay(100);
       #endif
       if (timming <= 0) { //Ha llegado al final, tenemos que parar!
         move(false, config.getPinRelayUp());
         state_btn1 = false;
+        if (config.homeAssistantEnabled()) {
+          ha.SendUpdate(100, 100, 0);
+        }
         config.setCurrentPosition(100);
         device->setPercent(100);
         #ifdef DEBUG
@@ -301,6 +297,9 @@ void clickManagement() {
       if (new_position > 100) {
         new_position = 100;
       }
+      if (config.homeAssistantEnabled()) {
+        ha.SendUpdate(new_position, new_position, 0);
+      }
       config.setCurrentPosition(new_position);
       device->setPercent(new_position);
     }
@@ -324,9 +323,17 @@ void clickManagement() {
     } else { //Está ya activo
       timming = timming-(millis()-last_timming);
       last_timming = millis();
+      // HomeAssistant stuff
+      if (config.homeAssistantEnabled()) {
+        current_percent = config.getCurrentPosition()-(last_timming-first_timming)/milliseconds_per_percent;
+        ha.SendUpdate(current_percent, 0, -1);
+      }
       if (timming <= 0) { //Ha llegado al final, tenemos que parar!
         move(false, config.getPinRelayDown());
         state_btn2 = false;
+        if (config.homeAssistantEnabled()) {
+          ha.SendUpdate(0, 0, 0);
+        }
         config.setCurrentPosition(0);
         device->setPercent(0);
       }
@@ -347,6 +354,9 @@ void clickManagement() {
       int8_t new_position = config.getCurrentPosition()-(int)percent_calcula;
       if (new_position < 0) {
         new_position = 0;
+      }
+      if (config.homeAssistantEnabled()) {
+        ha.SendUpdate(new_position, new_position, 0);
       }
       config.setCurrentPosition(new_position);
       device->setPercent(new_position);
@@ -386,24 +396,30 @@ void loop()
   config.loop();
 
   // HomeAssistant stuff
-  #if defined(HOMEASSISTANT_SUPPORT)
-  if (netConnection && loop_cnt==30 && first_loop) {
+  
+  if (config.homeAssistantEnabled() && netConnection && loop_cnt==30 && first_loop) {
     //delay(1000);
     //mqtt.publish("persiana/debug", "hay conexine");
     ha = HomeAssistant(&mqtt, &config);
     ha.SendDiscovery();
     ha.SendState();
-    first_loop=false;    
+    first_loop=false; 
+    
   }
-  if (netConnection && loop_cnt == 0 && !first_loop) {
+  if (config.homeAssistantEnabled() && netConnection && loop_cnt == 0 && !first_loop) { //TODO Make to repeat each 5 minutes
     ha.SendState();
+    //ntpClient.update();
   }
   loop_cnt++;
-  #endif
   delay(50);
 }
 
 void moveToPosition(uint8_t percent, uint8_t alexa_value) {
+  /**
+   * percent: (0-100) where 0 is closed and 100 is totally open
+   * alexa_value: (0-255) where 0 is closed and 255 is totally open
+   */
+  uint8_t current_percent;
   #if defined(DEBUG) || defined(KINGART_Q4)
   char str[90];
   #endif
@@ -421,6 +437,9 @@ void moveToPosition(uint8_t percent, uint8_t alexa_value) {
     sprintf(str, "AT+UPDATE=\"sequence\":\"1572536577552\",\"setclose\":%d\x1b", percent); //TODO Poner valor de secuencia aleatorio, si fuera necesario...
     Serial.print(str);
     Serial.flush();
+    if (config.homeAssistantEnabled()) {
+      ha.SendUpdate(percent, 0, -1) {
+    } 
   #endif
   #if defined(OTHER_BOARD)
     //percent = 100-percent;
@@ -436,20 +455,23 @@ void moveToPosition(uint8_t percent, uint8_t alexa_value) {
       //sprintf(str, "El tiempo es de... %lu", diff);
       //mqtt.publish(DEBUG_TOPIC, str);
         delay(50);
-      // First, assure RELAY1 is stopped
+      // First, assure RELAY-UP is stopped
       digitalWrite(config.getPinRelayUp(), LOW);
       digitalWrite(config.getPinRelayDown(), HIGH);
       // This block of code is to prevent the error in alexa like: "Device does not response"
-      uint8_t ent = diff/500;
-      uint8_t dec = diff%500;
+      uint8_t ent = diff/1000;
+      uint8_t dec = diff%1000;
       for (uint8_t i=0;i<ent;++i) {
-        delay(500);
+        delay(1000);
         espalexa.loop();
+        if (config.homeAssistantEnabled()) {
+          current_percent = config.getCurrentPosition()-1000*(i+1)/milliseconds_per_percent;
+          ha.SendUpdate(current_percent, percent, -1);
+        } 
       }
       delay(dec);
       espalexa.loop();
-      //delay(diff);
-      // End of the block of alexa problem
+
       digitalWrite(config.getPinRelayDown(), LOW);
       /*digitalWrite(LED, LOW);
       delayMicroseconds(diff);
@@ -475,35 +497,58 @@ void moveToPosition(uint8_t percent, uint8_t alexa_value) {
       for (uint8_t i=0;i<ent;++i) {
         delay(1000);
         espalexa.loop();
+        if (config.homeAssistantEnabled()) {
+          current_percent = config.getCurrentPosition()+1000*(i+1)/milliseconds_per_percent;
+          ha.SendUpdate(current_percent, percent, 1);
+        }
       }
       delay(dec);
       espalexa.loop();
+       
       //delay(diff);
       // End of the block of alexa problem
       digitalWrite(config.getPinRelayUp(), LOW);
     }
     config.setCurrentPosition(percent);
+    if (config.homeAssistantEnabled()) {
+      ha.SendUpdate(percent, percent, 0);
+    } 
     //device->setPercent(percent);
   #endif
 
 }
 
-// MQTT callback (when receive a msg in the subscribed topic)
+// MQTT callback (when receive a msg in the subscribed topics)
 void mqtt_callback(char* topic, byte* payload, unsigned int length) {
   String messageTemp;
+  String topic_str = String(topic);
   for (unsigned int i=0; i < length; i++) {
     messageTemp += (char)payload[i];
   }
   messageTemp += '\0';
-
+  
   #ifdef DEBUG
-  mqtt.publish(DEBUG_TOPIC, "Callback msg:");
+  mqtt.publish(DEBUG_TOPIC, "Callback msg: ");
   mqtt.publish(DEBUG_TOPIC, messageTemp.c_str());
   delay(50);
   #endif
-  uint8_t percent = atoi(messageTemp.c_str());
-  uint8_t alexa_value = (percent * 255)/100;
-  moveToPosition(percent, alexa_value);
+  if (messageTemp == "ShutterOpen1") {
+    //mqtt.publish(DEBUG_TOPIC, "A SUBIRRRR");
+  }
+  if (messageTemp == "ShutterStop1") {
+    //mqtt.publish(DEBUG_TOPIC, "A PARAAAAR");
+  }
+  if (messageTemp == "ShutterClose1") {
+    //mqtt.publish(DEBUG_TOPIC, "A BAJAR!!");
+  }
+  if (topic_str.endsWith("ShutterPosition1")) {
+    uint8_t percent = messageTemp.toInt();
+    uint8_t alexa_value = (percent * 255)/100;
+    moveToPosition(percent, alexa_value);
+  }
+  //uint8_t percent = atoi(messageTemp.c_str());
+  //uint8_t alexa_value = (percent * 255)/100;
+  //moveToPosition(percent, alexa_value);
 }
 
 // Alexa callback

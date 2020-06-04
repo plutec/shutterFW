@@ -65,7 +65,8 @@ void handleRoot() {
     <h1>Node information</h1><br>\
     <form method=\"post\" enctype=\"application/x-www-form-urlencoded\" action=\"/p\">\
       Hostname: <input type=\"text\" name=\"hostname\" value=\""+String(configuration->getHostname())+"\"><br>\
-      Alexa name: <input type=\"text\" name=\"alexa_name\" value=\""+String(configuration->getAlexaName())+"\"><br>";
+      Alexa name: <input type=\"text\" name=\"alexa_name\" value=\""+String(configuration->getAlexaName())+"\"><br>\
+      Enable HomeAssistant integration: <input type=\"checkbox\" name=\"ha_enable\"><br>";      
       #ifdef OTHER_BOARD
       postForms += "Open/close time: <input type=\"text\" name=\"open_time\" value=\""+String(configuration->getOpenTime())+"\"> seconds<br>";
       #endif
@@ -167,6 +168,13 @@ void handleFormMQTT() {
       }
       if (httpServer.argName(i) == "button_down") {
         configuration->setPinButtonDown(httpServer.arg(i).toInt());
+      }
+      if (httpServer.argName(i) == "ha_enable") {
+        if (httpServer.arg(i) == "on") {
+          configuration->setHomeAssistantEnabled(true);
+        } else {
+          configuration->setHomeAssistantEnabled(false);
+        }
       }
     }
     httpServer.send(200, "text/plain", message);

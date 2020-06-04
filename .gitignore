@@ -4,5 +4,4 @@
 .vscode/launch.json
 .vscode/ipch
 *.txt
-config.h
 .vscode/settings.json
