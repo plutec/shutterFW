@@ -1,3 +1,9 @@
+/*
+  WebServer.cpp - Webserver to control ShutterFW
+  Antonio Sánchez <asanchez@plutec.net>
+  https://plutec.net
+  https://github.com/plutec
+*/
 
 #include "WebServer.h"
 
@@ -16,7 +22,7 @@ WebServer::WebServer(Configuration *config) {
 
   httpServer.on("/postplain", handlePlain);
 
-  httpServer.on("/p", handleFormMQTT);
+  httpServer.on("/p", handleForm);
 
   httpServer.onNotFound(handleNotFound);
 
@@ -66,7 +72,9 @@ void handleRoot() {
     <form method=\"post\" enctype=\"application/x-www-form-urlencoded\" action=\"/p\">\
       Hostname: <input type=\"text\" name=\"hostname\" value=\""+String(configuration->getHostname())+"\"><br>\
       Alexa name: <input type=\"text\" name=\"alexa_name\" value=\""+String(configuration->getAlexaName())+"\"><br>\
-      Enable HomeAssistant integration: <input type=\"checkbox\" name=\"ha_enable\"><br>";      
+      <input type=\"hidden\" name=\"ha_enable\" value=\"off\">\
+      Enable HomeAssistant integration: <input type=\"checkbox\" name=\"ha_enable\" "+String(configuration->homeAssistantEnabledChecked())+"><br>\
+      Topic for HomeAssistant: <input type=\"text\" name=\"mqtt_topic\" value=\""+String(configuration->getMqttTopic())+"\"><br>";
       #ifdef OTHER_BOARD
       postForms += "Open/close time: <input type=\"text\" name=\"open_time\" value=\""+String(configuration->getOpenTime())+"\"> seconds<br>";
       #endif
@@ -99,7 +107,7 @@ void handleRoot() {
     #else
     postForms += "<br>Compiled for KingArt Curtain Q4<br>";
     #endif
-    postForms += "Version:\
+    postForms += "Version: "+String(VERSION_FW)+"\
   </body>\
 </html>";
 
@@ -107,27 +115,23 @@ void handleRoot() {
 }
 
 void handleRestart() {
-  httpServer.send(200, "text/plain", "<META http-equiv=\"refresh\" content=\"15;URL=/\">Restarting...\n" + httpServer.arg("plain"));
+  httpServer.send(200, "text/html", "<META http-equiv=\"refresh\" content=\"15;URL=/\">Restarting...\n");
   ESP.restart();
 }
 
 void handlePlain() {
   if (httpServer.method() != HTTP_POST) {
-    //digitalWrite(led, 1);
     httpServer.send(405, "text/plain", "Method Not Allowed");
-    //digitalWrite(led, 0);
   } else {
-    //digitalWrite(led, 1);
     httpServer.send(200, "text/plain", "POST body was:\n" + httpServer.arg("plain"));
-    //digitalWrite(led, 0);
   }
 }
 
-void handleFormMQTT() {
+void handleForm() {
   if (httpServer.method() != HTTP_POST) {
     httpServer.send(405, "text/plain", "Method Not Allowed");
   } else {
-    String message = "POST form was:\n";
+    String message = "";
     for (uint8_t i = 0; i < httpServer.args(); i++) {
       message += " " + httpServer.argName(i) + ": " + httpServer.arg(i) + "\n";
       if (httpServer.argName(i) == "server") {
@@ -176,8 +180,15 @@ void handleFormMQTT() {
           configuration->setHomeAssistantEnabled(false);
         }
       }
+      if (httpServer.argName(i) == "mqtt_topic") {
+        configuration->setMqttTopic(httpServer.arg(i).c_str());
+      }
     }
+    #ifdef DEBUG
     httpServer.send(200, "text/plain", message);
+    #else 
+    httpServer.send(200, "text/html", "<META http-equiv=\"refresh\" content=\"0;URL=/\">");
+    #endif
   }
 }
 

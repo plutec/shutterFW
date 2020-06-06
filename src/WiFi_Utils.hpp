@@ -1,4 +1,4 @@
-#include "config.h"
+#include <ESP8266WiFi.h>
 
 bool wifiAP = false;
 

@@ -74,9 +74,9 @@ After that, navigate to the IP that your router give to the device and configure
 - [X] Integration with BlitzWolf SS4
 - [X] Integration of Sonoff Dual R2
 - [X] Dynamic parameters instead hardcoded (time up/down, wifi, mqtt config, hostname, alexa name, ...)
-- [ ] Integration with HomeAssistant
+- [X] Integration with HomeAssistant
+- [X] Remove all the content and the file config.h. Make it dynamic and configurable in web interface.
 - [ ] Code clean (hehe)
 - [ ] Add mDNS
 - [ ] Set different levels of open (for instance: 20%, 40%, 50%, 70%)
 - [ ] Control the device from the management webpage
-- [ ] Remove all the content and the file config.h. Make it dynamic and configurable in web interface.

@@ -6,7 +6,7 @@
 #ifndef Configuration_h
 #define Configuration_h
 
-#define VERSION_FW "0.0.1(shutterFW)"
+#define VERSION_FW "0.5(shutterFW)"
 
 struct storage_struct{ 
   bool new_values = false;
@@ -34,6 +34,7 @@ struct storage_struct{
   int8_t gpio_button_down = -1;
   // HomeAssistant
   bool ha_enabled = false;
+  char mqttTopic[32] = "ShutterFW";
 };
 
 
@@ -87,7 +88,10 @@ class Configuration {
 
         // HomeAssistant
         bool homeAssistantEnabled() { return storage.ha_enabled; }
+        char* homeAssistantEnabledChecked() { if (storage.ha_enabled) { return "checked";} return ""; } // I know this is not correct, but it's a microcontroller and the memory is very limited :(
         void setHomeAssistantEnabled(bool stat) { storage.ha_enabled = stat; storage.new_values = true;}
+        void setMqttTopic(const char *topic);
+        char* getMqttTopic();
         
         // loop
         void loop();

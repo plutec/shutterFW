@@ -16,8 +16,6 @@ void Configuration::save_eeprom_data() {
   }
 }
 
-
-
 void Configuration::begin() {
     SPIFFS.begin();
     File fd = SPIFFS.open("/conf.txt", "r");
@@ -249,4 +247,17 @@ void Configuration::setPinButtonUp(int8_t pin) {
 void Configuration::setPinButtonDown(int8_t pin) {
     storage.gpio_button_down = pin;
     storage.new_values = true;
+}
+
+// HomeAssistant
+void Configuration::setMqttTopic(const char *topic) {
+    strncpy(storage.mqttTopic, topic, sizeof(storage.mqttTopic));
+    storage.new_values = true;
+}
+
+char* Configuration::getMqttTopic() {
+    if (storage.mqttTopic[0] == '\0') {
+        sprintf(storage.mqttTopic, "shutterfw_%06X", (uint32_t)ESP.getChipId());
+    }
+    return storage.mqttTopic;
 }

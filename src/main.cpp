@@ -1,4 +1,4 @@
-#include <ESP8266WiFi.h>
+//#include <ESP8266WiFi.h>
 #include <ArduinoOTA.h>
 #include "PubSubClient.h"
 #include "Espalexa.h"
@@ -11,33 +11,6 @@
 #include "WebServer.h"
 #include "Configuration.h"
 
-#define PAYLOAD_STOP "BLINDSTOP"
-#define PAYLOAD_OPEN "BLINDOPEN"
-#define PAYLOAD_CLOSE "BLINDCLOSE"
-//#define HOMEASSISTANT_SUPPORT
-
-
-//MQTT INFO
-/*
-availability_topic: "tele/persiana_despacho/LWT" (Online/Offline)
-position_topic: stat/persiana_despacho/SHUTTER1
-   stat/luz_cocina/RESULT {"POWER":"ON"}
-   stat/luz_cocina/POWER ON
-   ---
-   stat/luz_cocina/RESULT {"POWER":"OFF"}
-   stat/luz_cocina/POWER OFF
-
-set_position_topic: "cmnd/persiana_despacho/shutterposition" -> Cuando manda HA, en este caso en lugar de ON OFF será un numero
-   cmnd/luz_cocina/POWER ON   
-   cmnd/luz_cocina/POWER OFF
-
-command_topic: "cmnd/persiana_despacho/backlog"
-payload_open: "SHUTTEROPEN"
-payload_close: "SHUTTERCLOSE"
-payload_stop: "SHUTTERSTOP"
-position_open: 100 -> Clear
-position_closed: 0 -> Clear
-*/
 
 void mqtt_callback(char* topic, byte* payload, unsigned int length);
 
@@ -46,8 +19,10 @@ void percentBlind(uint8_t value);
 
 #if defined(OTHER_BOARD)
 unsigned long milliseconds_per_percent;
-bool state_btn1 = false;
-bool state_btn2 = false;
+bool already_moving_up = false;
+bool already_moving_down = false;
+bool using_buttons = false;
+int8_t virtual_button = 0;
 #endif
 bool netConnection = false;
 
@@ -56,8 +31,6 @@ Configuration config;
 WebServer webserver;
 WiFiClient espClient;
 PubSubClient mqtt(espClient);
-//ESP8266WebServer httpServer(8080);
-//ESP8266HTTPUpdateServer httpUpdater;
 Espalexa espalexa;
 HomeAssistant ha;
 
@@ -184,8 +157,8 @@ void setup()
 /**
  * moveOrStop: true (move), false (stop)
  * relay: Pin to put HIGH (move true), or LOW (move false)
+ * Note: In kingart it is managed with MCU, ESP is not in charge of this.
  */
-// In kingart it is managed with MCU, ESP is not in charge of this.
 void move(bool moveOrStop, uint8_t relay) {
   if (moveOrStop) {
     digitalWrite(relay, HIGH);
@@ -196,8 +169,160 @@ void move(bool moveOrStop, uint8_t relay) {
 
 #endif
 
-void clickManagement() {
+/**
+ * int8_t updownstop: up == 1, down == -1, stop == 0, continue_with_previous == 2
+ */
+void movementManager(int8_t updownstop) {
   uint8_t current_percent;
+  if (updownstop == 1) {//if (digitalRead(config.getPinButtonUp()) == LOW) { // Remind this is active at LOW
+    //Esto es para subir, tenemos la posición actual en "current_position". Sabemos que hasta el 100% le queda 100-current_position (pongamos 20%).
+    //En subir ese 20% tarda 20*milliseconds_per_percent. Pongo un tope de estos millis y retrocemos hasta que llegue a 0.
+    if (already_moving_up == false && config.getCurrentPosition() < 100) { // It's the first loop after press buttonup
+      #ifdef DEBUG
+      mqtt.publish(DEBUG_TOPIC, "Enable relayUp");
+      Serial.println("Enable relayUp");
+      delay(100);
+      #endif
+      move(true, config.getPinRelayUp());
+      already_moving_up = true;
+      //timming = millis(); //Enable timming
+      first_timming = millis(); //Time of activation
+      timming = (100-config.getCurrentPosition())*milliseconds_per_percent; //Time to reach 100%
+      last_timming = millis();
+
+    } else if (config.getCurrentPosition() == 100){ //Está ya activo y ha llegado al final
+      //Do nothing, this conditional is required (or not...)
+    } else { // Second and following loops after press buttonUP
+      #ifdef DEBUG
+        mqtt.publish(DEBUG_TOPIC, "Relé1 ELSE");
+        Serial.println("Rele1 else");
+        //delay(100);
+      #endif
+      timming = timming-(millis()-last_timming);
+      last_timming = millis();
+      // HomeAssistant stuff
+      if (config.homeAssistantEnabled()) {
+        current_percent = config.getCurrentPosition()+(last_timming-first_timming)/milliseconds_per_percent;
+        ha.SendUpdate(current_percent, 100, 1);
+      }
+    
+      #ifdef DEBUG
+      //char str_debug[256];
+      //sprintf(str_debug, "timming %lu last_timming %lu \n", timming, last_timming );
+      //mqtt.publish(DEBUG_TOPIC, str_debug);
+      //delay(100);
+      #endif
+      if (timming <= 0) { //Ha llegado al final, tenemos que parar!
+        move(false, config.getPinRelayUp());
+        already_moving_up = false;
+        if (config.homeAssistantEnabled()) {
+          ha.SendUpdate(100, 100, 0);
+        }
+        config.setCurrentPosition(100);
+        device->setPercent(100);
+        #ifdef DEBUG
+        mqtt.publish(DEBUG_TOPIC, "Relé1 ha llegado al final, tenemos que parar!");
+        Serial.println("Rele1 ha llegado al final, paramos");
+        //delay(100);
+        #endif
+      }
+    }
+  } else {
+    if (already_moving_up == true) { //El usuario ha desactivado el relé
+      #ifdef DEBUG
+      mqtt.publish(DEBUG_TOPIC, "DESactiva relé 1");
+      Serial.println("Desactiva relé 1");
+      delay(100);
+      #endif
+      move(false, config.getPinRelayUp());
+      already_moving_up = false;
+      timming = timming-(millis()-last_timming);
+      unsigned long moving_time = millis() - first_timming;
+      //Calculate percent
+      unsigned long percent_calcula = moving_time/milliseconds_per_percent;
+      uint8_t new_position = config.getCurrentPosition()+(int)percent_calcula;
+      if (new_position > 100) {
+        new_position = 100;
+      }
+      if (config.homeAssistantEnabled()) {
+        ha.SendUpdate(new_position, new_position, 0);
+      }
+      config.setCurrentPosition(new_position);
+      device->setPercent(new_position);
+    }
+  }
+  // Button 2
+  if (updownstop==-1) {//if (digitalRead(config.getPinButtonDown()) == LOW) { // Remind this is active at LOW
+    if (already_moving_down == false && config.getCurrentPosition() > 0) {
+      #ifdef DEBUG
+      mqtt.publish(DEBUG_TOPIC, "Activa relé 2");
+      Serial.println("Activa rele2");
+      delay(100);
+      #endif
+      move(true, config.getPinRelayDown());
+      already_moving_down = true;
+      //timming = millis(); //Enable timming
+      first_timming = millis(); //Time of activation
+      timming = config.getCurrentPosition()*milliseconds_per_percent; //Time to reach 0%
+      last_timming = millis(); 
+    } else if (config.getCurrentPosition() == 0){ 
+      //Do nothing
+    } else { //Está ya activo
+      timming = timming-(millis()-last_timming);
+      last_timming = millis();
+      // HomeAssistant stuff
+      if (config.homeAssistantEnabled()) {
+        current_percent = config.getCurrentPosition()-(last_timming-first_timming)/milliseconds_per_percent;
+        ha.SendUpdate(current_percent, 0, -1);
+      }
+      if (timming <= 0) { //Ha llegado al final, tenemos que parar!
+        move(false, config.getPinRelayDown());
+        already_moving_down = false;
+        if (config.homeAssistantEnabled()) {
+          ha.SendUpdate(0, 0, 0);
+        }
+        config.setCurrentPosition(0);
+        device->setPercent(0);
+      }
+    }
+  } else {
+    if (already_moving_down == true) { //El usuario ha desactivado el relé
+      #ifdef DEBUG
+      mqtt.publish(DEBUG_TOPIC, "DESactiva relé 2");
+      Serial.println("Desactiva rele2");
+      delay(100);
+      #endif
+      move(false, config.getPinRelayDown());
+      already_moving_down = false;
+      timming = timming-(millis()-last_timming);
+      unsigned long moving_time = millis() - first_timming;
+      //Calculate percent
+      unsigned long percent_calcula = moving_time/milliseconds_per_percent;
+      int8_t new_position = config.getCurrentPosition()-(int)percent_calcula;
+      if (new_position < 0) {
+        new_position = 0;
+      }
+      if (config.homeAssistantEnabled()) {
+        ha.SendUpdate(new_position, new_position, 0);
+      }
+      config.setCurrentPosition(new_position);
+      device->setPercent(new_position);
+    }
+  }
+  if (updownstop==0) {
+    move(false, config.getPinRelayUp());
+    move(false, config.getPinRelayDown());
+    already_moving_down = false;
+    already_moving_up = false;
+  }
+  if (updownstop==2) { //TODO Este debe calcular todo el movimiento
+    /*mqtt.publish(DEBUG_TOPIC, "LOS RELÉS SIGUEN A SU BOLA");
+    delay(100);*/
+  }
+}
+
+void clickManagement() {
+  //uint8_t current_percent;
   #ifdef KINGART_Q4
     if (Serial.available()>0) {
       String st = Serial.readStringUntil('\n');
@@ -228,9 +353,14 @@ void clickManagement() {
   //bool pinValue = digitalRead(BUTTON1);
 
   if (digitalRead(config.getPinButtonUp()) == LOW) { // Remind this is active at LOW
+    movementManager(1);
+    //mqtt.publish(DEBUG_TOPIC, "Activa PARRIBA");
+    //Serial.println("Activa rele2");
+    //delay(100);
+    using_buttons = true;
     //Esto es para subir, tenemos la posición actual en "current_position". Sabemos que hasta el 100% le queda 100-current_position (pongamos 20%).
     //En subir ese 20% tarda 20*milliseconds_per_percent. Pongo un tope de estos millis y retrocemos hasta que llegue a 0.
-    if (state_btn1 == false && config.getCurrentPosition() < 100) { // It's the first loop after press buttonup
+    /*if (state_btn1 == false && config.getCurrentPosition() < 100) { // It's the first loop after press buttonup
       #ifdef DEBUG
       mqtt.publish(DEBUG_TOPIC, "Enable relayUp");
       Serial.println("Enable relayUp");
@@ -280,8 +410,11 @@ void clickManagement() {
         #endif
       }
     }
-  } else {
-    if (state_btn1 == true) { //El usuario ha desactivado el relé
+  } 
+   else {
+    if (already_moving_up == true) { //El usuario ha desactivado el relé y se estaba moviendo
+      movementManager(0);
+    
       #ifdef DEBUG
       mqtt.publish(DEBUG_TOPIC, "DESactiva relé 1");
       Serial.println("Desactiva relé 1");
@@ -301,12 +434,18 @@ void clickManagement() {
         ha.SendUpdate(new_position, new_position, 0);
       }
       config.setCurrentPosition(new_position);
-      device->setPercent(new_position);
-    }
+      device->setPercent(new_position);*/
+    //}
   }
+
   // Button 2
-  if (digitalRead(config.getPinButtonDown()) == LOW) { // Remind this is active at LOW
-    if (state_btn2 == false && config.getCurrentPosition() > 0) {
+  else if (digitalRead(config.getPinButtonDown()) == LOW) { // Remind this is active at LOW
+    movementManager(-1);
+    //mqtt.publish(DEBUG_TOPIC, "Activa PABAJO");
+    //Serial.println("Activa rele2");
+    //delay(100);
+    using_buttons = true;
+    /*if (state_btn2 == false && config.getCurrentPosition() > 0) {
       #ifdef DEBUG
       mqtt.publish(DEBUG_TOPIC, "Activa relé 2");
       Serial.println("Activa rele2");
@@ -339,7 +478,10 @@ void clickManagement() {
       }
     }
   } else {
-    if (state_btn2 == true) { //El usuario ha desactivado el relé
+    
+    if (already_moving_down == true) { //El usuario ha desactivado el relé y se estaba moviendo
+      movementManager(0);
+    
       #ifdef DEBUG
       mqtt.publish(DEBUG_TOPIC, "DESactiva relé 2");
       Serial.println("Desactiva rele2");
@@ -359,8 +501,18 @@ void clickManagement() {
         ha.SendUpdate(new_position, new_position, 0);
       }
       config.setCurrentPosition(new_position);
-      device->setPercent(new_position);
-    }
+      device->setPercent(new_position);*/
+    //}
+  } /*else if (using_buttons) {
+    using_buttons = false;
+    movementManager(0);
+  }*/
+  else if (virtual_button == 1) { // Enabled the virtual button up
+    movementManager(1);
+  } else if (virtual_button == -1) {
+    movementManager(-1);
+  } else if (already_moving_up || already_moving_down) {
+    movementManager(0);
   }
   //debounce delay
   unsigned long Milliseconds = millis()+50;
@@ -386,7 +538,9 @@ void loop()
   if (config.isSetPinouts()) {
     clickManagement();
   }
-
+  /*if (!using_buttons) {
+    movementManager(2);
+  }*/
   // Alexa
   if (netConnection) {
     espalexa.loop();
@@ -533,13 +687,13 @@ void mqtt_callback(char* topic, byte* payload, unsigned int length) {
   delay(50);
   #endif
   if (messageTemp == "ShutterOpen1") {
-    //mqtt.publish(DEBUG_TOPIC, "A SUBIRRRR");
+    virtual_button = 1;
   }
   if (messageTemp == "ShutterStop1") {
-    //mqtt.publish(DEBUG_TOPIC, "A PARAAAAR");
+    virtual_button = 0;
   }
   if (messageTemp == "ShutterClose1") {
-    //mqtt.publish(DEBUG_TOPIC, "A BAJAR!!");
+    virtual_button = -1;
   }
   if (topic_str.endsWith("ShutterPosition1")) {
     uint8_t percent = messageTemp.toInt();
