@@ -212,6 +212,15 @@ uint8_t Configuration::getCurrentPosition() {
     return storage.current_position;
 }
 
+uint8_t Configuration::getCurrentPositionKA() {
+    uint8_t to_ret;
+    if (storage.current_position > 100) {
+        storage.current_position = 100;
+    }
+    to_ret = 100-storage.current_position;
+    return to_ret;
+}
+
 bool Configuration::isSetPinouts() {
     bool to_ret = true;
     if (storage.gpio_relay_up == -1) {

@@ -17,13 +17,15 @@ void mqtt_callback(char* topic, byte* payload, unsigned int length);
 //ALEXA CALLBACK
 void percentBlind(uint8_t value);
 
+void moveToPosition(uint8_t percent, uint8_t alexa_value);
+
 #if defined(OTHER_BOARD)
 unsigned long milliseconds_per_percent;
+bool using_buttons = false;
+#endif
 bool already_moving_up = false;
 bool already_moving_down = false;
-bool using_buttons = false;
 int8_t virtual_button = 0;
-#endif
 bool netConnection = false;
 
 
@@ -58,21 +60,8 @@ void reconnect_mqtt() {
       // Wait 5 seconds before retrying
       delay(1000);
     }
-    //count--;
   }
 }
-/*
-void button_interrupt() {
-  #ifdef DEBUG
-  mqtt.publish(DEBUG_TOPIC, "Recibo interrupcion btn1");
-  delay(100);
-  #endif
-  //debounce delay
-  int Milliseconds = millis()+50;
-  while (Milliseconds > millis()) ;
-
-}
-*/
 
 void networkManagement() {
   if (!ConnectWiFi_STA(config.getWifiSsid(), config.getWifiPass())) {
@@ -108,7 +97,7 @@ void setup()
   #ifdef KINGART_Q4
   Serial.begin(19200);
   delay(1000);
-  Serial.println("AT+UPDATE=\"sequence\":\"1572542635565\",\"switch\":\"pause\"\x1b"); // \x1b
+  Serial.println("AT+UPDATE=\"sequence\":\"1572542635565\",\"switch\":\"pause\"\x1b");
   Serial.flush();
   #else
   Serial.begin(115200);
@@ -173,6 +162,7 @@ void move(bool moveOrStop, uint8_t relay) {
  * int8_t updownstop: up == 1, down == -1, stop == 0, continue_with_previous == 2
  */
 void movementManager(int8_t updownstop) {
+  #if defined(OTHER_BOARD)
   uint8_t current_percent;
   if (updownstop == 1) {//if (digitalRead(config.getPinButtonUp()) == LOW) { // Remind this is active at LOW
     //Esto es para subir, tenemos la posición actual en "current_position". Sabemos que hasta el 100% le queda 100-current_position (pongamos 20%).
@@ -315,10 +305,18 @@ void movementManager(int8_t updownstop) {
     already_moving_down = false;
     already_moving_up = false;
   }
-  if (updownstop==2) { //TODO Este debe calcular todo el movimiento
-    /*mqtt.publish(DEBUG_TOPIC, "LOS RELÉS SIGUEN A SU BOLA");
-    delay(100);*/
+  #else // KingArt Q4
+  if (updownstop == 1) {
+    moveToPosition(100, 255);
   }
+  if (updownstop == -1) {
+    moveToPosition(0, 0);
+  }
+  if (updownstop == 0) {
+    Serial.println("AT+UPDATE=\"sequence\":\"1572542635565\",\"switch\":\"pause\"\x1b");
+    Serial.flush();
+  }
+  #endif
 }
 
 void clickManagement() {
@@ -343,9 +341,26 @@ void clickManagement() {
         if (config.getCurrentPosition() != num.toInt()) {
           config.setCurrentPosition(num.toInt());
           device->setPercent(100-num.toInt());
+          if (config.homeAssistantEnabled()) {
+            int8_t direction;
+            int8_t target;
+            if (num.toInt()>config.getCurrentPosition()) {
+              direction=-1;
+              target=0;
+            } else {
+              direction=1;
+              target=100;
+            }
+            ha.SendUpdate(100-num.toInt(), target, direction);
+          }
+        }
+        else if (config.homeAssistantEnabled()) {
+          pos = st.lastIndexOf("\"pause\"");
+          if (pos != -1) {
+            ha.SendUpdate(100-num.toInt(), 100-num.toInt(), 0);
+          }
         }
       }
-      
     }
   #endif
   #if defined(OTHER_BOARD)
@@ -507,6 +522,7 @@ void clickManagement() {
     using_buttons = false;
     movementManager(0);
   }*/
+  
   else if (virtual_button == 1) { // Enabled the virtual button up
     movementManager(1);
   } else if (virtual_button == -1) {
@@ -517,7 +533,18 @@ void clickManagement() {
   //debounce delay
   unsigned long Milliseconds = millis()+50;
   while (Milliseconds > millis()) ;
+  #else
+  else if (virtual_button == 1) { // Enabled the virtual button up
+    movementManager(1);
+  } else if (virtual_button == -1) {
+    movementManager(-1);
+  } else if (virtual_button == 2) { //Stop
+    virtual_button = 0;
+    movementManager(0);
+    
+  }
   #endif
+  
 }
 
 uint16_t loop_cnt = 0;
@@ -535,12 +562,13 @@ void loop()
   }
 
   // Click management. Also for KingArt Serial communication (feedback from physical buttons)
+  #ifdef OTHER_BOARD
   if (config.isSetPinouts()) {
     clickManagement();
   }
-  /*if (!using_buttons) {
-    movementManager(2);
-  }*/
+  #else
+  clickManagement();
+  #endif
   // Alexa
   if (netConnection) {
     espalexa.loop();
@@ -573,12 +601,10 @@ void moveToPosition(uint8_t percent, uint8_t alexa_value) {
    * percent: (0-100) where 0 is closed and 100 is totally open
    * alexa_value: (0-255) where 0 is closed and 255 is totally open
    */
-  uint8_t current_percent;
+  //uint8_t current_percent;
   #if defined(DEBUG) || defined(KINGART_Q4)
   char str[90];
   #endif
-  //uint8_t percent_alexa = 100-percent;
-  //device->setPercent(percent_alexa);
   device->setValue(alexa_value);
   espalexa.loop();
   #ifdef DEBUG
@@ -587,13 +613,18 @@ void moveToPosition(uint8_t percent, uint8_t alexa_value) {
     delay(50);
   #endif
   #ifdef KINGART_Q4
-    percent = 100-percent;
-    sprintf(str, "AT+UPDATE=\"sequence\":\"1572536577552\",\"setclose\":%d\x1b", percent); //TODO Poner valor de secuencia aleatorio, si fuera necesario...
+    uint8_t percent_ka = 100-percent;
+    sprintf(str, "AT+UPDATE=\"sequence\":\"1572536577552\",\"setclose\":%d\x1b", percent_ka); //TODO Change to random values in sequence if needed... (aparently not)
     Serial.print(str);
     Serial.flush();
     if (config.homeAssistantEnabled()) {
-      ha.SendUpdate(percent, 0, -1) {
-    } 
+      if (config.getCurrentPosition() > percent) {
+        ha.SendUpdate(percent, 0, -1);
+      } else {
+        ha.SendUpdate(percent, 100, 1);
+      }
+      
+    }
   #endif
   #if defined(OTHER_BOARD)
     //percent = 100-percent;
@@ -690,7 +721,7 @@ void mqtt_callback(char* topic, byte* payload, unsigned int length) {
     virtual_button = 1;
   }
   if (messageTemp == "ShutterStop1") {
-    virtual_button = 0;
+    virtual_button = 2;
   }
   if (messageTemp == "ShutterClose1") {
     virtual_button = -1;

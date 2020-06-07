@@ -21,11 +21,52 @@ HomeAssistant::HomeAssistant(PubSubClient* mqtt, Configuration* config) {
     this->chip_id = (uint32_t)ESP.getChipId();
 };
 
+String HomeAssistant::GenerateConfig() {
+    String topic = String(config->getMqttTopic());
+
+    String config="\
+cover:\n\
+  - platform: mqtt\n\
+    name: \"Persiana Invitados\"\n\
+    availability_topic: \"tele/"+topic+"/LWT\"\n\
+    payload_available: \"Online\"\n\
+    payload_not_available: \"Offline\"\n\
+    position_topic: \"stat/"+topic+"/RESULT\"\n\
+    value_template: >\n\
+      {% if ('Shutter1' in value_json) and ('Position' in value_json.Shutter1) %}\n\
+        {{ value_json.Shutter1.Position }}\n\
+      {% else %}\n\
+        {% if is_state('cover."+topic+"', 'unknown') %}\n\
+          50\n\
+        {% else %}\n\
+          {{ state_attr('cover."+topic+"','current_position') }}\n\
+        {% endif %}\n\
+      {% endif %}\n\
+    position_open: 100\n\
+    position_closed: 0\n\
+    set_position_topic: \"cmnd/"+topic+"/ShutterPosition1\"\n\
+    command_topic: \"cmnd/"+topic+"/Backlog\"\n\
+    payload_open: \"ShutterOpen1\"\n\
+    payload_close: \"ShutterClose1\"\n\
+    payload_stop: \"ShutterStop1\"\n\
+    retain: false\n\
+    optimistic: false\n\
+    qos: 1";
+
+    return config;
+}
+
 void HomeAssistant::SendState() {
     char str[512];
     char str_topic[128];
     char topic[32];
     strncpy(topic, config->getMqttTopic(), sizeof(topic));
+    char hardware[32];
+    #ifdef KINGART_Q4
+    strncpy(hardware, "KingArt Q4", sizeof(hardware));
+    #else
+    strncpy(hardware, "Unknown Hardware", sizeof(hardware));
+    #endif
 
     // tele/persiana_inventada1/LWT Online
     snprintf(str_topic, 128, "tele/%s/LWT", topic);
@@ -36,8 +77,8 @@ void HomeAssistant::SendState() {
     this->mqtt->publish(str_topic, NULL);
 
     // tele/persiana_inventada1/INFO1 {"Module":"Sonoff Dual R2","Version":"8.3.1(tasmota)","FallbackTopic":"cmnd/DVES_E03583_fb/","GroupTopic":"cmnd/tasmotas/"}
-    snprintf(str, 512, "{\"Module\":\"Unknown Hardware\",\"Version\":\"%s\",\"FallbackTopic\":\"cmnd/DVES_%06X_fb/\",\"GroupTopic\":\"cmnd/shutters/\"}",
-                        VERSION_FW, chip_id);
+    snprintf(str, 512, "{\"Module\":\"%s\",\"Version\":\"%s\",\"FallbackTopic\":\"cmnd/DVES_%06X_fb/\",\"GroupTopic\":\"cmnd/shutters/\"}",
+                        hardware, VERSION_FW, chip_id);
     snprintf(str_topic, 128, "tele/%s/INFO1", topic);
     this->mqtt->publish(str_topic, str);
 

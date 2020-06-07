@@ -10,6 +10,7 @@
 #define HomeAssistant_h
 #include "PubSubClient.h"
 #include "Configuration.h"
+#include "config.h"
 #include <ESP8266WiFi.h>
 
 
@@ -21,6 +22,7 @@ class HomeAssistant {
     public:
         HomeAssistant();
         HomeAssistant(PubSubClient* mqtt, Configuration* config);
+        String GenerateConfig();
         void SendDiscovery();
         void SendState();
         void ManageSubscription();

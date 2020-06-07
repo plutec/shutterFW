@@ -34,7 +34,7 @@ struct storage_struct{
   int8_t gpio_button_down = -1;
   // HomeAssistant
   bool ha_enabled = false;
-  char mqttTopic[32] = "ShutterFW";
+  char mqttTopic[32] = "";
 };
 
 
@@ -74,6 +74,7 @@ class Configuration {
         uint32_t getOpenTime();
         void setCurrentPosition(uint8_t current_position);
         uint8_t getCurrentPosition();
+        uint8_t getCurrentPositionKA();
         
         // Relays and button
         bool isSetPinouts();

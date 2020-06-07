@@ -24,6 +24,8 @@ WebServer::WebServer(Configuration *config) {
 
   httpServer.on("/p", handleForm);
 
+  httpServer.on("/haconfig",handleHAConfig);
+
   httpServer.onNotFound(handleNotFound);
 
   httpServer.begin();
@@ -68,6 +70,7 @@ void handleRoot() {
     <h1>"+String(configuration->getHostname())+"</h1>\
     <a href=\"/update\">Go to update page</a><br>\
     <a href=\"/restart\">Restart</a><br>\
+    <a href=\"/haconfig\">See HomeAssistant configuration</a><br>\
     <h1>Node information</h1><br>\
     <form method=\"post\" enctype=\"application/x-www-form-urlencoded\" action=\"/p\">\
       Hostname: <input type=\"text\" name=\"hostname\" value=\""+String(configuration->getHostname())+"\"><br>\
@@ -76,10 +79,12 @@ void handleRoot() {
       Enable HomeAssistant integration: <input type=\"checkbox\" name=\"ha_enable\" "+String(configuration->homeAssistantEnabledChecked())+"><br>\
       Topic for HomeAssistant: <input type=\"text\" name=\"mqtt_topic\" value=\""+String(configuration->getMqttTopic())+"\"><br>";
       #ifdef OTHER_BOARD
-      postForms += "Open/close time: <input type=\"text\" name=\"open_time\" value=\""+String(configuration->getOpenTime())+"\"> seconds<br>";
+      postForms += "Open/close time: <input type=\"text\" name=\"open_time\" value=\""+String(configuration->getOpenTime())+"\"> seconds<br>\
+      Current position: "+String(configuration->getCurrentPosition())+"<br>";  
+      #else
+      postForms += "Current position: "+String(configuration->getCurrentPositionKA())+"<br>";
       #endif
-      postForms += "Current position: "+String(configuration->getCurrentPosition())+"<br>\
-      <input type=\"submit\" value=\"Change general information\">\
+      postForms += "<input type=\"submit\" value=\"Change general information\">\
     </form>\
     <h1>MQTT information</h1><br>\
     <form method=\"post\" enctype=\"application/x-www-form-urlencoded\" action=\"/p\">\
@@ -117,6 +122,44 @@ void handleRoot() {
 void handleRestart() {
   httpServer.send(200, "text/html", "<META http-equiv=\"refresh\" content=\"15;URL=/\">Restarting...\n");
   ESP.restart();
+}
+
+void handleHAConfig() {
+      String topic = String(configuration->getMqttTopic());
+
+    String config="\
+cover:\n\
+  - platform: mqtt\n\
+    name: \"Persiana Invitados\"\n\
+    availability_topic: \"tele/"+topic+"/LWT\"\n\
+    payload_available: \"Online\"\n\
+    payload_not_available: \"Offline\"\n\
+    position_topic: \"stat/"+topic+"/RESULT\"\n\
+    value_template: >\n\
+      {% if ('Shutter1' in value_json) and ('Position' in value_json.Shutter1) %}\n\
+        {{ value_json.Shutter1.Position }}\n\
+      {% else %}\n\
+        {% if is_state('cover."+topic+"', 'unknown') %}\n\
+          50\n\
+        {% else %}\n\
+          {{ state_attr('cover."+topic+"','current_position') }}\n\
+        {% endif %}\n\
+      {% endif %}\n\
+    position_open: 100\n\
+    position_closed: 0\n\
+    set_position_topic: \"cmnd/"+topic+"/ShutterPosition1\"\n\
+    command_topic: \"cmnd/"+topic+"/Backlog\"\n\
+    payload_open: \"ShutterOpen1\"\n\
+    payload_close: \"ShutterClose1\"\n\
+    payload_stop: \"ShutterStop1\"\n\
+    retain: false\n\
+    optimistic: false\n\
+    qos: 1";
+    
+
+
+
+httpServer.send(200, "text/plain", config);
 }
 
 void handlePlain() {

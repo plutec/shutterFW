@@ -15,6 +15,7 @@ void handleRoot();
 void handleRestart();
 void handlePlain();
 void handleForm();
+void handleHAConfig();
 void handleNotFound();
 
 class WebServer {
