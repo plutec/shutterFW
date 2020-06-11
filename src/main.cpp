@@ -477,6 +477,7 @@ void moveToPosition(uint8_t percent, uint8_t alexa_value) {
     Serial.flush();
   #endif
   #if defined(OTHER_BOARD)
+    uint8_t current_percent;
     //percent = 100-percent;
     if (config.getCurrentPosition() == percent) { //In the requested position
       //Do nothing
