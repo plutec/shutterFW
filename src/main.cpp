@@ -1,12 +1,9 @@
-//#include <ESP8266WiFi.h>
 #include <ArduinoOTA.h>
 #include "PubSubClient.h"
 #include "Espalexa.h"
 
-#include "config.h"  // Sustituir con datos de vuestra red
+#include "config.h"
 #include "WiFi_Utils.hpp"
-#include <ESP8266HTTPUpdateServer.h>
-//#include <ESP8266WebServer.h>
 #include "HomeAssistant.h"
 #include "WebServer.h"
 #include "Configuration.h"
@@ -21,7 +18,6 @@ void moveToPosition(uint8_t percent, uint8_t alexa_value);
 
 #if defined(OTHER_BOARD)
 unsigned long milliseconds_per_percent;
-bool using_buttons = false;
 #endif
 bool already_moving_up = false;
 bool already_moving_down = false;
@@ -49,7 +45,7 @@ void reconnect_mqtt() {
   if (!mqtt.connected()) {
     if (mqtt.connect(config.getHostname())) {
       #ifdef DEBUG
-      mqtt.publish(DEBUG_TOPIC, "Conectado de nuevo");
+      mqtt.publish(DEBUG_TOPIC, "Connected again");
       mqtt.publish(DEBUG_TOPIC, config.getHostname());
       #endif
       //subscribe to:
@@ -76,47 +72,35 @@ void pinConfiguration() {
   #if defined(OTHER_BOARD)
   pinMode(config.getPinRelayUp(), OUTPUT);
   pinMode(config.getPinRelayDown(), OUTPUT);
-  //pinMode(LED, OUTPUT);
-  //digitalWrite(LED, LOW);
   pinMode(config.getPinButtonUp(), INPUT);
   pinMode(config.getPinButtonDown(), INPUT);
-  //attachInterrupt(digitalPinToInterrupt(BUTTON1), button_interrupt, RISING);
   #endif
 }
 
 void alexaConfiguration() {
   device = new EspalexaDevice(config.getAlexaName(), percentBlind);
-  espalexa.addDevice(device); //and then add them
+  espalexa.addDevice(device); //and then add it
   #if defined(OTHER_BOARD)
   device->setPercent(config.getCurrentPosition()); //this allows you to e.g. update their state value at any time!
   #endif
 }
 void setup()
 {
-  
   #ifdef KINGART_Q4
   Serial.begin(19200);
   delay(1000);
   Serial.println("AT+UPDATE=\"sequence\":\"1572542635565\",\"switch\":\"pause\"\x1b");
   Serial.flush();
-
   #else
   Serial.begin(115200);
   #endif
- 
   config.begin();
   #if defined(OTHER_BOARD)
   milliseconds_per_percent = config.getOpenTime()*10; // Time take to open or close 1 percent (in milliseconds).
   #endif
  
   pinConfiguration();
-  /*
-  if (!ConnectWiFi_STA(config.getWifiSsid(), config.getWifiPass(), !use_dhcp)) {
-    ConnectWiFi_AP();
-    netConnection = false;
-  } else {SONOFF_DUAL_R2
-    netConnection = true;
-  }*/
+
   networkManagement();
   
   // MQTT
@@ -165,9 +149,9 @@ void move(bool moveOrStop, uint8_t relay) {
 void movementManager(int8_t updownstop) {
   #if defined(OTHER_BOARD)
   uint8_t current_percent;
-  if (updownstop == 1) {//if (digitalRead(config.getPinButtonUp()) == LOW) { // Remind this is active at LOW
-    //Esto es para subir, tenemos la posición actual en "current_position". Sabemos que hasta el 100% le queda 100-current_position (pongamos 20%).
-    //En subir ese 20% tarda 20*milliseconds_per_percent. Pongo un tope de estos millis y retrocemos hasta que llegue a 0.
+  if (updownstop == 1) {
+    // This is to open, we have current position in "current_position". We know that until reach 100%, remain 100-current_position, for instance 20%.
+    // To open this 20% take 20*milliseconds_per_percent. I establish the maximum in millis and substract until reach 0.
     if (already_moving_up == false && config.getCurrentPosition() < 100) { // It's the first loop after press buttonup
       #ifdef DEBUG
       mqtt.publish(DEBUG_TOPIC, "Enable relayUp");
@@ -176,21 +160,20 @@ void movementManager(int8_t updownstop) {
       #endif
       move(true, config.getPinRelayUp());
       already_moving_up = true;
-      //timming = millis(); //Enable timming
       first_timming = millis(); //Time of activation
       timming = (100-config.getCurrentPosition())*milliseconds_per_percent; //Time to reach 100%
       last_timming = millis();
 
-    } else if (config.getCurrentPosition() == 100){ //Está ya activo y ha llegado al final
+    } else if (config.getCurrentPosition() == 100){ //Already active and reach the end
       //Do nothing, this conditional is required (or not...)
     } else { // Second and following loops after press buttonUP
       #ifdef DEBUG
-        mqtt.publish(DEBUG_TOPIC, "Relé1 ELSE");
-        Serial.println("Rele1 else");
-        //delay(100);
+        mqtt.publish(DEBUG_TOPIC, "Relay1 else");
+        Serial.println("Relay1 else");
       #endif
       timming = timming-(millis()-last_timming);
       last_timming = millis();
+
       // HomeAssistant stuff
       if (config.homeAssistantEnabled()) {
         current_percent = config.getCurrentPosition()+(last_timming-first_timming)/milliseconds_per_percent;
@@ -198,12 +181,12 @@ void movementManager(int8_t updownstop) {
       }
     
       #ifdef DEBUG
-      //char str_debug[256];
-      //sprintf(str_debug, "timming %lu last_timming %lu \n", timming, last_timming );
-      //mqtt.publish(DEBUG_TOPIC, str_debug);
-      //delay(100);
+      char str_debug[256];
+      sprintf(str_debug, "timming %lu last_timming %lu \n", timming, last_timming );
+      mqtt.publish(DEBUG_TOPIC, str_debug);
+      delay(100);
       #endif
-      if (timming <= 0) { //Ha llegado al final, tenemos que parar!
+      if (timming <= 0) { //Reach the end, need to stop!
         move(false, config.getPinRelayUp());
         already_moving_up = false;
         if (config.homeAssistantEnabled()) {
@@ -212,24 +195,24 @@ void movementManager(int8_t updownstop) {
         config.setCurrentPosition(100);
         device->setPercent(100);
         #ifdef DEBUG
-        mqtt.publish(DEBUG_TOPIC, "Relé1 ha llegado al final, tenemos que parar!");
-        Serial.println("Rele1 ha llegado al final, paramos");
-        //delay(100);
+        mqtt.publish(DEBUG_TOPIC, "Relay1 reach the end!");
+        Serial.println("Relay1 reach the end!");
+        delay(100);
         #endif
       }
     }
   } else {
-    if (already_moving_up == true) { //El usuario ha desactivado el relé
+    if (already_moving_up == true) { // User disable relay 1
       #ifdef DEBUG
-      mqtt.publish(DEBUG_TOPIC, "DESactiva relé 1");
-      Serial.println("Desactiva relé 1");
+      mqtt.publish(DEBUG_TOPIC, "Disable relay1");
+      Serial.println("Disable relay1");
       delay(100);
       #endif
       move(false, config.getPinRelayUp());
       already_moving_up = false;
       timming = timming-(millis()-last_timming);
       unsigned long moving_time = millis() - first_timming;
-      //Calculate percent
+      // Calculate percent
       unsigned long percent_calcula = moving_time/milliseconds_per_percent;
       uint8_t new_position = config.getCurrentPosition()+(int)percent_calcula;
       if (new_position > 100) {
@@ -243,11 +226,11 @@ void movementManager(int8_t updownstop) {
     }
   }
   // Button 2
-  if (updownstop==-1) {//if (digitalRead(config.getPinButtonDown()) == LOW) { // Remind this is active at LOW
+  if (updownstop==-1) {
     if (already_moving_down == false && config.getCurrentPosition() > 0) {
       #ifdef DEBUG
-      mqtt.publish(DEBUG_TOPIC, "Activa relé 2");
-      Serial.println("Activa rele2");
+      mqtt.publish(DEBUG_TOPIC, "Activate relay2");
+      Serial.println("Activate relay2");
       delay(100);
       #endif
       move(true, config.getPinRelayDown());
@@ -257,16 +240,17 @@ void movementManager(int8_t updownstop) {
       timming = config.getCurrentPosition()*milliseconds_per_percent; //Time to reach 0%
       last_timming = millis(); 
     } else if (config.getCurrentPosition() == 0){ 
-      //Do nothing
-    } else { //Está ya activo
+      // Do nothing
+    } else { // Already active
       timming = timming-(millis()-last_timming);
       last_timming = millis();
+
       // HomeAssistant stuff
       if (config.homeAssistantEnabled()) {
         current_percent = config.getCurrentPosition()-(last_timming-first_timming)/milliseconds_per_percent;
         ha.SendUpdate(current_percent, 0, -1);
       }
-      if (timming <= 0) { //Ha llegado al final, tenemos que parar!
+      if (timming <= 0) { // Reach the end, need to stop!
         move(false, config.getPinRelayDown());
         already_moving_down = false;
         if (config.homeAssistantEnabled()) {
@@ -279,8 +263,8 @@ void movementManager(int8_t updownstop) {
   } else {
     if (already_moving_down == true) { //El usuario ha desactivado el relé
       #ifdef DEBUG
-      mqtt.publish(DEBUG_TOPIC, "DESactiva relé 2");
-      Serial.println("Desactiva rele2");
+      mqtt.publish(DEBUG_TOPIC, "User disable relay2");
+      Serial.println("User disable relay2");
       delay(100);
       #endif
       move(false, config.getPinRelayDown());
@@ -325,7 +309,6 @@ bool last_time_pause = false; //If the last command to HA was pause, this is tru
 #endif
 
 void clickManagement() {
-  //uint8_t current_percent;
   #ifdef KINGART_Q4
   String setclose = "";
   int8_t setclose_int = -1;
@@ -390,164 +373,14 @@ void clickManagement() {
   #endif
   #if defined(OTHER_BOARD)
   // Button 1
-  //bool pinValue = digitalRead(BUTTON1);
-
   if (digitalRead(config.getPinButtonUp()) == LOW) { // Remind this is active at LOW
     movementManager(1);
-    //mqtt.publish(DEBUG_TOPIC, "Activa PARRIBA");
-    //Serial.println("Activa rele2");
-    //delay(100);
-    using_buttons = true;
-    //Esto es para subir, tenemos la posición actual en "current_position". Sabemos que hasta el 100% le queda 100-current_position (pongamos 20%).
-    //En subir ese 20% tarda 20*milliseconds_per_percent. Pongo un tope de estos millis y retrocemos hasta que llegue a 0.
-    /*if (state_btn1 == false && config.getCurrentPosition() < 100) { // It's the first loop after press buttonup
-      #ifdef DEBUG
-      mqtt.publish(DEBUG_TOPIC, "Enable relayUp");
-      Serial.println("Enable relayUp");
-      delay(100);
-      #endif
-      move(true, config.getPinRelayUp());
-      state_btn1 = true;
-      //timming = millis(); //Enable timming
-      first_timming = millis(); //Time of activation
-      timming = (100-config.getCurrentPosition())*milliseconds_per_percent; //Time to reach 100%
-      last_timming = millis();
-
-    } else if (config.getCurrentPosition() == 100){ //Está ya activo y ha llegado al final
-      //Do nothing
-    } else { // Second and following loops after press buttonUP
-      #ifdef DEBUG
-        mqtt.publish(DEBUG_TOPIC, "Relé1 ELSE");
-        Serial.println("Rele1 else");
-        //delay(100);
-      #endif
-      timming = timming-(millis()-last_timming);
-      last_timming = millis();
-      // HomeAssistant stuff
-      if (config.homeAssistantEnabled()) {
-        current_percent = config.getCurrentPosition()+(last_timming-first_timming)/milliseconds_per_percent;
-        ha.SendUpdate(current_percent, 100, 1);
-      }
-    
-      #ifdef DEBUG
-      //char str_debug[256];
-      //sprintf(str_debug, "timming %lu last_timming %lu \n", timming, last_timming );
-      //mqtt.publish(DEBUG_TOPIC, str_debug);
-      //delay(100);
-      #endif
-      if (timming <= 0) { //Ha llegado al final, tenemos que parar!
-        move(false, config.getPinRelayUp());
-        state_btn1 = false;
-        if (config.homeAssistantEnabled()) {
-          ha.SendUpdate(100, 100, 0);
-        }
-        config.setCurrentPosition(100);
-        device->setPercent(100);
-        #ifdef DEBUG
-        mqtt.publish(DEBUG_TOPIC, "Relé1 ha llegado al final, tenemos que parar!");
-        Serial.println("Rele1 ha llegado al final, paramos");
-        //delay(100);
-        #endif
-      }
-    }
-  } 
-   else {
-    if (already_moving_up == true) { //El usuario ha desactivado el relé y se estaba moviendo
-      movementManager(0);
-    
-      #ifdef DEBUG
-      mqtt.publish(DEBUG_TOPIC, "DESactiva relé 1");
-      Serial.println("Desactiva relé 1");
-      delay(100);
-      #endif
-      move(false, config.getPinRelayUp());
-      state_btn1 = false;
-      timming = timming-(millis()-last_timming);
-      unsigned long moving_time = millis() - first_timming;
-      //Calculate percent
-      unsigned long percent_calcula = moving_time/milliseconds_per_percent;
-      uint8_t new_position = config.getCurrentPosition()+(int)percent_calcula;
-      if (new_position > 100) {
-        new_position = 100;
-      }
-      if (config.homeAssistantEnabled()) {
-        ha.SendUpdate(new_position, new_position, 0);
-      }
-      config.setCurrentPosition(new_position);
-      device->setPercent(new_position);*/
-    //}
   }
 
   // Button 2
   else if (digitalRead(config.getPinButtonDown()) == LOW) { // Remind this is active at LOW
     movementManager(-1);
-    //mqtt.publish(DEBUG_TOPIC, "Activa PABAJO");
-    //Serial.println("Activa rele2");
-    //delay(100);
-    using_buttons = true;
-    /*if (state_btn2 == false && config.getCurrentPosition() > 0) {
-      #ifdef DEBUG
-      mqtt.publish(DEBUG_TOPIC, "Activa relé 2");
-      Serial.println("Activa rele2");
-      delay(100);
-      #endif
-      move(true, config.getPinRelayDown());
-      state_btn2 = true;
-      //timming = millis(); //Enable timming
-      first_timming = millis(); //Time of activation
-      timming = config.getCurrentPosition()*milliseconds_per_percent; //Time to reach 0%
-      last_timming = millis(); 
-    } else if (config.getCurrentPosition() == 0){ 
-      //Do nothing
-    } else { //Está ya activo
-      timming = timming-(millis()-last_timming);
-      last_timming = millis();
-      // HomeAssistant stuff
-      if (config.homeAssistantEnabled()) {
-        current_percent = config.getCurrentPosition()-(last_timming-first_timming)/milliseconds_per_percent;
-        ha.SendUpdate(current_percent, 0, -1);
-      }
-      if (timming <= 0) { //Ha llegado al final, tenemos que parar!
-        move(false, config.getPinRelayDown());
-        state_btn2 = false;
-        if (config.homeAssistantEnabled()) {
-          ha.SendUpdate(0, 0, 0);
-        }
-        config.setCurrentPosition(0);
-        device->setPercent(0);
-      }
-    }
-  } else {
-    
-    if (already_moving_down == true) { //El usuario ha desactivado el relé y se estaba moviendo
-      movementManager(0);
-    
-      #ifdef DEBUG
-      mqtt.publish(DEBUG_TOPIC, "DESactiva relé 2");
-      Serial.println("Desactiva rele2");
-      delay(100);
-      #endif
-      move(false, config.getPinRelayDown());
-      state_btn2 = false;
-      timming = timming-(millis()-last_timming);
-      unsigned long moving_time = millis() - first_timming;
-      //Calculate percent
-      unsigned long percent_calcula = moving_time/milliseconds_per_percent;
-      int8_t new_position = config.getCurrentPosition()-(int)percent_calcula;
-      if (new_position < 0) {
-        new_position = 0;
-      }
-      if (config.homeAssistantEnabled()) {
-        ha.SendUpdate(new_position, new_position, 0);
-      }
-      config.setCurrentPosition(new_position);
-      device->setPercent(new_position);*/
-    //}
-  } /*else if (using_buttons) {
-    using_buttons = false;
-    movementManager(0);
-  }*/
-  
+  } 
   else if (virtual_button == 1) { // Enabled the virtual button up
     movementManager(1);
   } else if (virtual_button == -1) {
@@ -609,8 +442,6 @@ void loop()
   // HomeAssistant stuff
   
   if (config.homeAssistantEnabled() && netConnection && loop_cnt==30 && first_loop) {
-    //delay(1000);
-    //mqtt.publish("persiana/debug", "hay conexine");
     ha = HomeAssistant(&mqtt, &config);
     ha.SendDiscovery();
     ha.SendState();
@@ -619,7 +450,6 @@ void loop()
   }
   if (config.homeAssistantEnabled() && netConnection && loop_cnt == 0 && !first_loop) { //TODO Make to repeat each 5 minutes
     ha.SendState();
-    //ntpClient.update();
   }
   loop_cnt++;
   delay(50);
@@ -630,7 +460,6 @@ void moveToPosition(uint8_t percent, uint8_t alexa_value) {
    * percent: (0-100) where 0 is closed and 100 is totally open
    * alexa_value: (0-255) where 0 is closed and 255 is totally open
    */
-  //uint8_t current_percent;
   #if defined(DEBUG) || defined(KINGART_Q4)
   char str[90];
   #endif
@@ -690,7 +519,7 @@ void moveToPosition(uint8_t percent, uint8_t alexa_value) {
       //RELAY1 ON, RELAY2 OFF
       unsigned long diff = (percent-config.getCurrentPosition())*milliseconds_per_percent;
       #ifdef DEBUG
-      sprintf(str, "El tiempo es de... %lu", diff);
+      sprintf(str, "The time is... %lu", diff);
       mqtt.publish(DEBUG_TOPIC, str);
       delay(50);
       #endif
@@ -752,19 +581,16 @@ void mqtt_callback(char* topic, byte* payload, unsigned int length) {
     uint8_t alexa_value = (percent * 255)/100;
     moveToPosition(percent, alexa_value);
   }
-  //uint8_t percent = atoi(messageTemp.c_str());
-  //uint8_t alexa_value = (percent * 255)/100;
-  //moveToPosition(percent, alexa_value);
 }
 
 // Alexa callback
 void percentBlind(uint8_t value) {
   #ifdef DEBUG
   char str[80];
-  sprintf(str, "Mueve el callback de alexa valor %u", value);
+  sprintf(str, "Move the AlexaCallback to value %u", value);
   mqtt.publish(DEBUG_TOPIC, str);
   #endif
-  //0 para alexa es 0 para mi, 255 para alexa es 100 para mi
+  //0 for alexa is 0 for me, 255 for alexa is 100 for me
   uint8_t percent = (value*100)/255; //100=open; 0=close
 
   moveToPosition(percent, value);
