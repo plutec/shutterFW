@@ -24,10 +24,10 @@ HomeAssistant::HomeAssistant(PubSubClient* mqtt, Configuration* config) {
 String HomeAssistant::GenerateConfig() {
     String topic = String(config->getMqttTopic());
 
-    String config="\
+    String to_ret="\
 cover:\n\
   - platform: mqtt\n\
-    name: \"Persiana Invitados\"\n\
+    name: \""+String(config->getHostname())+"\"\n\
     availability_topic: \"tele/"+topic+"/LWT\"\n\
     payload_available: \"Online\"\n\
     payload_not_available: \"Offline\"\n\
@@ -53,7 +53,7 @@ cover:\n\
     optimistic: false\n\
     qos: 1";
 
-    return config;
+    return to_ret;
 }
 
 void HomeAssistant::SendState() {
@@ -108,8 +108,12 @@ void HomeAssistant::SendState() {
     this->mqtt->publish(str_topic, str);*/
 
     // tele/persiana_inventada1/SENSOR {"Time":"2020-05-18T22:53:39","Shutter1":{"Position":0,"Direction":0,"Target":0}}
-    snprintf(str, 512, "{\"Shutter1\":{\"Position\":%d,\"Direction\":0,\"Target\":%d}}", 
+    snprintf(str, 512, "{\"Shutter1\":{\"Position\":%d,\"Direction\":0,\"Target\":%d}}",
+                        #ifdef KINGART_Q4
+                        config->getCurrentPositionKA(), config->getCurrentPositionKA());
+                        #else //OTHER_BOARD
                         config->getCurrentPosition(), config->getCurrentPosition());
+                        #endif
     snprintf(str_topic, 128, "tele/%s/SENSOR", topic);
     this->mqtt->publish(str_topic, str);
 
@@ -134,8 +138,14 @@ void HomeAssistant::SendDiscovery() {
     char str[512];
     char str_topic[128];
     char topic[32];
+    char hardware[32];
     strncpy(topic, config->getMqttTopic(), sizeof(topic));
-        
+    #ifdef KINGART_Q4
+    strncpy(hardware, "KingArt Q4", sizeof(hardware));
+    #else
+    strncpy(hardware, "Unknown Hardware", sizeof(hardware));
+    #endif
+    
 
     #define STRING_LENGTH 65
     char topics_to_clean_four[6][STRING_LENGTH] = {
@@ -182,7 +192,7 @@ void HomeAssistant::SendDiscovery() {
     this->mqtt->publish(str_topic, str, true); // Retained
         
     snprintf(str, 512, "{\"name\":\"%s status\",\"stat_t\":\"tele/%s/HASS_STATE\",\"avty_t\":\"tele/%s/LWT\",\"pl_avail\":\"Online\",\"pl_not_avail\":\"Offline\",\"json_attr_t\":\"tele/%s/HASS_STATE\",\"unit_of_meas\":\"%%\",\"val_tpl\":\"{{value_json['RSSI']}}\",\"ic\":\"mdi:information-outline\",\"uniq_id\":\"%06X_status\",\"dev\":{\"ids\":[\"%06X\"],\"name\":\"%s\",\"mdl\":\"%s\",\"sw\":\"%s\",\"mf\":\"ShutterFW\"}}",
-        topic, topic, topic, topic, chip_id, chip_id, topic, "Unknown Hardware", VERSION_FW);
+        topic, topic, topic, topic, chip_id, chip_id, topic, hardware, VERSION_FW);
     snprintf(str_topic, 128, "homeassistant/sensor/%06X_status/config", chip_id);
     this->mqtt->publish(str_topic, str, true); // Retained
 }

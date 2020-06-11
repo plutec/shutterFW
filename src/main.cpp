@@ -99,6 +99,7 @@ void setup()
   delay(1000);
   Serial.println("AT+UPDATE=\"sequence\":\"1572542635565\",\"switch\":\"pause\"\x1b");
   Serial.flush();
+
   #else
   Serial.begin(115200);
   #endif
@@ -313,15 +314,22 @@ void movementManager(int8_t updownstop) {
     moveToPosition(0, 0);
   }
   if (updownstop == 0) {
-    Serial.println("AT+UPDATE=\"sequence\":\"1572542635565\",\"switch\":\"pause\"\x1b");
+    Serial.println("AT+UPDATE=\"sequence\":\"1572542635564\",\"switch\":\"pause\"\x1b");
     Serial.flush();
   }
   #endif
 }
 
+#ifdef KINGART_Q4
+bool last_time_pause = false; //If the last command to HA was pause, this is true
+#endif
+
 void clickManagement() {
   //uint8_t current_percent;
   #ifdef KINGART_Q4
+  String setclose = "";
+  int8_t setclose_int = -1;
+  int8_t pos = -1;
     if (Serial.available()>0) {
       String st = Serial.readStringUntil('\n');
       st[st.length()-1] = '\0';
@@ -329,39 +337,56 @@ void clickManagement() {
       #ifdef DEBUG
       mqtt.publish(DEBUG_TOPIC, st.c_str());
       #endif
-      int8_t pos = st.lastIndexOf("\"setclose\":");
+
+      //AT+RESULT="sequence":"1572542635564" (If send a AT+RESULT, we request the position with AT+SEND)
+      if (st.lastIndexOf("1572542635564")!=-1) {
+        Serial.println("AT+SEND=ok\x1b");
+        Serial.flush();
+      }
+      //setclose: Get position of the curtain
+      pos = st.lastIndexOf("\"setclose\":");
       if (pos != -1) { 
         pos += 11; // len of "setclose":
 
-        String num;// = "";
         while(isdigit(st[pos])) {
-          num += st[pos];
+          setclose += st[pos];
           ++pos;
         }
-        if (config.getCurrentPosition() != num.toInt()) {
-          config.setCurrentPosition(num.toInt());
-          device->setPercent(100-num.toInt());
+        setclose_int = setclose.toInt();
+        if (config.getCurrentPosition() != setclose_int) {
+          config.setCurrentPosition(setclose_int);
+          device->setPercent(100-setclose_int);
           if (config.homeAssistantEnabled()) {
             int8_t direction;
             int8_t target;
-            if (num.toInt()>config.getCurrentPosition()) {
+            if (setclose_int>config.getCurrentPosition()) {
               direction=-1;
               target=0;
             } else {
               direction=1;
               target=100;
             }
-            ha.SendUpdate(100-num.toInt(), target, direction);
+            ha.SendUpdate(100-setclose_int, target, direction);
           }
         }
-        else if (config.homeAssistantEnabled()) {
-          pos = st.lastIndexOf("\"pause\"");
-          if (pos != -1) {
-            ha.SendUpdate(100-num.toInt(), 100-num.toInt(), 0);
-          }
-        }
+      // "switch":"pause"
+      if (st.lastIndexOf("\"switch\":\"pause\"")!=-1 && setclose_int != -1 && !last_time_pause) {
+        ha.SendUpdate(100-setclose_int, 100-setclose_int, 0);
+        last_time_pause = true;
+      }
+      // "switch":"on"
+      if (st.lastIndexOf("\"switch\":\"on\"")!=-1 && setclose_int != -1) {
+        ha.SendUpdate(100-setclose_int, 100, 1);
+        last_time_pause = false;
+      }
+      // "switch":"off"
+      if (st.lastIndexOf("\"switch\":\"off\"")!=-1 && setclose_int != -1) {
+        ha.SendUpdate(100-setclose_int, 0, -1);
+        last_time_pause = false;
+      }
       }
     }
+    
   #endif
   #if defined(OTHER_BOARD)
   // Button 1
@@ -534,11 +559,15 @@ void clickManagement() {
   unsigned long Milliseconds = millis()+50;
   while (Milliseconds > millis()) ;
   #else
-  else if (virtual_button == 1) { // Enabled the virtual button up
+  else if (virtual_button == 1 && !already_moving_up) { // Enabled the virtual button up
+    already_moving_up = true;
     movementManager(1);
-  } else if (virtual_button == -1) {
+  } else if (virtual_button == -1 && !already_moving_down) {
+    already_moving_down = true;
     movementManager(-1);
   } else if (virtual_button == 2) { //Stop
+    already_moving_up = false;
+    already_moving_down = false;
     virtual_button = 0;
     movementManager(0);
     
@@ -614,17 +643,9 @@ void moveToPosition(uint8_t percent, uint8_t alexa_value) {
   #endif
   #ifdef KINGART_Q4
     uint8_t percent_ka = 100-percent;
-    sprintf(str, "AT+UPDATE=\"sequence\":\"1572536577552\",\"setclose\":%d\x1b", percent_ka); //TODO Change to random values in sequence if needed... (aparently not)
+    sprintf(str, "AT+UPDATE=\"sequence\":\"1572536577552\",\"setclose\":%d\x1b", percent_ka);
     Serial.print(str);
     Serial.flush();
-    if (config.homeAssistantEnabled()) {
-      if (config.getCurrentPosition() > percent) {
-        ha.SendUpdate(percent, 0, -1);
-      } else {
-        ha.SendUpdate(percent, 100, 1);
-      }
-      
-    }
   #endif
   #if defined(OTHER_BOARD)
     //percent = 100-percent;

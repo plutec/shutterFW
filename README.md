@@ -63,11 +63,11 @@ After install the firmware for other boards, you need to configure the pinout fo
 - Button Down -> GPIO 5
 
 # Firmware configuration
-When you flash the device the first time. It creates an Access Point with name MIESPITO. You must connect to it with password "fibonacci" and navigate to http://192.168.4.1:8080
+When you flash the device the first time. It creates an Access Point with name SHUTTERFW_XXXXXX. You must connect to it with password "fibonacci" and navigate to http://192.168.4.1:8080
 
 Configure the WiFi parameters and other also and restart the device to connect to your wifi.
 
-After that, navigate to the IP that your router give to the device and configure it in: http://<ip>:8080
+After that, navigate to the IP that your router give to the device and configure it in: http://<IP>:8080
 
 # TODO List
 - [X] Integration of KingArt Q4 Curtain
