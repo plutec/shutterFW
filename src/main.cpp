@@ -43,7 +43,7 @@ unsigned long last_timming, first_timming;
 void reconnect_mqtt() {
   //uint8_t count = 5;
   if (!mqtt.connected()) {
-    if (mqtt.connect(config.getHostname())) {
+    if (mqtt.connect(config.getHostname(), config.getMQTTUser(), config.getMQTTPassword())) {
       #ifdef DEBUG
       mqtt.publish(DEBUG_TOPIC, "Connected again");
       mqtt.publish(DEBUG_TOPIC, config.getHostname());
