@@ -1,5 +1,5 @@
 
-# Firmware curtains, blinds, shutters, ...
+# Firmware for curtains, blinds, shutters, ...
 This device is special because it has a microcontroler (Nuvoton, MCU from now) for leds and relays. The communication with the ESP8285 is via Serial port with AT commands.
 
 I made this firmware for two main reason:
@@ -14,6 +14,7 @@ Also, I reuse the same code for differents HW devices that I have:
 - KingArt Q4 Curtain
 - BlitzWolf SS4 (2 ways)
 - Sonoff Dual R2 (2 ways)
+- MS-108
 
 # Calculate up/down times
 ## KingArt Q4
@@ -76,7 +77,7 @@ After that, navigate to the IP that your router give to the device and configure
 - [X] Dynamic parameters instead hardcoded (time up/down, wifi, mqtt config, hostname, alexa name, ...)
 - [X] Integration with HomeAssistant
 - [X] Remove all the content and the file config.h. Make it dynamic and configurable in web interface.
-- [ ] Code clean (hehe)
+- [X] Code clean (hehe)
 - [ ] Add mDNS
 - [ ] Set different levels of open (for instance: 20%, 40%, 50%, 70%)
 - [ ] Control the device from the management webpage
