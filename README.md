@@ -41,7 +41,7 @@ NOTE that the user was wrong, the GPIO0 for flash is SW, close to GND (both sold
 https://github.com/arendst/Tasmota/issues/5059#issuecomment-546736419
 
 ## Other boards
-After install the firmware for other boards, you need to configure the pinout for each one. As example, this is the pinout I am using in my devices, but you need to adapt to the soldered pins.
+After install the firmware for other boards, you need to configure the pinout for each one. As example, this is the pinout I am using in my devices, but you need to adapt to your soldered pins.
 
 ### Sonoff Dual R2
 - Relay UP -> GPIO 5
@@ -68,7 +68,15 @@ When you flash the device the first time. It creates an Access Point with name S
 
 Configure the WiFi parameters and other also and restart the device to connect to your wifi.
 
-After that, navigate to the IP that your router give to the device and configure it in: http://<IP>:8080
+After that, navigate to the IP that your router give to the device and configure it in: http://\<IP\>:8080
+
+# HomeAssistant Integration
+To configure with HomeAssistant, you need to have configured:
+- MQTT Server
+- Hostname
+- Click on "Enable HomeAssistant Integration" checkbox
+
+After that, click on "See HomeAssistant configuration" link and put those configuration in your configuration.yaml file and restart your HomeAssistant server.
 
 # TODO List
 - [X] Integration of KingArt Q4 Curtain
