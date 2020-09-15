@@ -336,13 +336,13 @@ void clickManagement() {
           ++pos;
         }
         setclose_int = setclose.toInt();
-        if (config.getCurrentPosition() != setclose_int) {
+        if (config.getCurrentPositionKA() != setclose_int) {
           config.setCurrentPosition(setclose_int);
           device->setPercent(100-setclose_int);
           if (config.homeAssistantEnabled()) {
             int8_t direction;
             int8_t target;
-            if (setclose_int>config.getCurrentPosition()) {
+            if (setclose_int>config.getCurrentPositionKA()) {
               direction=-1;
               target=0;
             } else {
