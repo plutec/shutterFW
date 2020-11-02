@@ -24,7 +24,7 @@ struct storage_struct{
   char mqttUser[32];// = NULL;  // In case no user use NULL
   char mqttPassword[32];// = NULL; // In case no password use NULL
   // Device information
-  char hostname[32] = "ShutterFW";
+  char hostname[32] = "";
   char alexa_name[32];
   uint32_t openTime = 10;
   // Relays and buttons

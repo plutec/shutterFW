@@ -2,9 +2,10 @@
 
 bool wifiAP = false;
 
-bool ConnectWiFi_STA(const char *ssid, const char *password)
+bool ConnectWiFi_STA(const char *ssid, const char *password, const char* hostname)
 {
   WiFi.mode(WIFI_STA);
+  WiFi.hostname(hostname);
   WiFi.begin(ssid, password);
   //if(useStaticIP) WiFi.config(ip, gateway, subnet);
   uint8 count = 100;

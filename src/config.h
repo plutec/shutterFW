@@ -10,7 +10,7 @@
 //#define DEBUG_TOPIC "persiana/debug"
 
 //Available hardware devices
-#define KINGART_Q4
-//#define OTHER_BOARD
+//#define KINGART_Q4
+#define OTHER_BOARD
 
 #endif // config_h

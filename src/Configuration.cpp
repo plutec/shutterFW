@@ -1,7 +1,11 @@
 
 #include "Configuration.h"
 
-Configuration::Configuration() {}
+Configuration::Configuration() {
+    if (storage.hostname[0]=='\0') {
+        snprintf(storage.hostname, 32, "SHUTTERFW-%06X", (uint32_t)ESP.getChipId()); 
+    }
+}
 
 // eeprom management
 void Configuration::save_eeprom_data() {
@@ -154,7 +158,7 @@ char* Configuration::getWifiSsid() {
 }
 
 char* Configuration::getWifiPass() {
-    for (int i=0;i<strlen(storage.wifiPass);++i) {
+    for (size_t i=0;i<strlen(storage.wifiPass);++i) {
         if (!isprint(storage.wifiPass[i])) {
             storage.wifiPass[0] = '\0';
             storage.new_values = true;
@@ -169,7 +173,7 @@ void Configuration::setHostname(const char *hostname) {
 }
 
 char* Configuration::getHostname() {
-    for (int i=0;i<strlen(storage.hostname);++i) {
+    for (size_t i=0;i<strlen(storage.hostname);++i) {
         if (!isprint(storage.hostname[i])) {
             storage.hostname[0] = '\0';
             storage.new_values = true;
