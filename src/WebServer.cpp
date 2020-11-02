@@ -11,14 +11,27 @@ ESP8266WebServer httpServer(8080);
 ESP8266HTTPUpdateServer httpUpdater;
 
 Configuration *configuration;
+int8_t *virtual_button_web;
+EspalexaDevice *device_alexa;
 
-WebServer::WebServer(Configuration *config) {
+WebServer::WebServer(Configuration *config, int8_t *virtual_button, EspalexaDevice *alexa) {
   configuration = config;
-
+  //Serial.print("Dentro");
+  //Serial.println(*virtual_button);
+  virtual_button_web = virtual_button;
+  device_alexa = alexa;
   //Pruebas webserver
   httpServer.on("/", handleRoot);
 
   httpServer.on("/restart", handleRestart);
+
+  httpServer.on("/up", handleVirtualUp);
+
+  httpServer.on("/down", handleVirtualDown);
+
+  httpServer.on("/stop", handleVirtualStop);
+
+  httpServer.on("/stat", handleStatus);
 
   httpServer.on("/postplain", handlePlain);
 
@@ -71,6 +84,11 @@ void handleRoot() {
     <a href=\"/update\">Go to update page</a><br>\
     <a href=\"/restart\">Restart</a><br>\
     <a href=\"/haconfig\">See HomeAssistant configuration</a><br>\
+    <h1>Control</h1><br>\
+    Current position: <div id=\"cp\">"+String(configuration->getCurrentPosition())+"</div>\
+    <button id=\"u\">Up</button><br>\
+    <button id=\"s\">Stop</button><br>\
+    <button id=\"d\">Down</button><br>\
     <h1>Node information</h1><br>\
     <form method=\"post\" enctype=\"application/x-www-form-urlencoded\" action=\"/p\">\
       Hostname: <input type=\"text\" name=\"hostname\" value=\""+String(configuration->getHostname())+"\"><br>\
@@ -79,8 +97,7 @@ void handleRoot() {
       Enable HomeAssistant integration: <input type=\"checkbox\" name=\"ha_enable\" "+String(configuration->homeAssistantEnabledChecked())+"><br>\
       Topic for HomeAssistant: <input type=\"text\" name=\"mqtt_topic\" value=\""+String(configuration->getMqttTopic())+"\"><br>";
       #ifdef OTHER_BOARD
-      postForms += "Open/close time: <input type=\"text\" name=\"open_time\" value=\""+String(configuration->getOpenTime())+"\"> seconds<br>\
-      Current position: "+String(configuration->getCurrentPosition())+"<br>";  
+      postForms += "Open/close time: <input type=\"text\" name=\"open_time\" value=\""+String(configuration->getOpenTime())+"\"> seconds<br>";
       #else
       postForms += "Current position: "+String(configuration->getCurrentPositionKA())+"<br>";
       #endif
@@ -114,6 +131,33 @@ void handleRoot() {
     #endif
     postForms += "Version: "+String(VERSION_FW)+"\
   </body>\
+  <script type=\"text/javascript\">\
+  document.getElementById('u').onclick=function(){\
+    var request = new XMLHttpRequest();\
+    request.open('GET', '/up', true);\
+    request.send();\
+    myVar = setInterval(stat, 1100);\
+  };\
+  document.getElementById('s').onclick=function(){\
+    var request = new XMLHttpRequest();\
+    request.open('GET', '/stop', true);\
+    request.send();\
+    clearInterval(myVar);\
+  };\
+  document.getElementById('d').onclick=function(){\
+    var request = new XMLHttpRequest();\
+    request.open('GET', '/down', true);\
+    request.send();\
+    myVar = setInterval(stat, 1100);\
+  };\
+  function stat(){\
+    console.log(\"Stat\");\
+    var request = new XMLHttpRequest();\
+    request.onreadystatechange=function(){if(request.readyState == 4 && request.status == 200){document.getElementById(\"cp\").innerHTML = request.responseText;}};\
+    request.open('GET', '/stat', true);\
+    request.send();\
+  };\
+  </script>\
 </html>";
 
   httpServer.send(200, "text/html", postForms);
@@ -155,11 +199,29 @@ cover:\n\
     retain: false\n\
     optimistic: false\n\
     qos: 1";
-    
-
-
-
 httpServer.send(200, "text/plain", config);
+}
+
+void handleVirtualUp() {
+  *virtual_button_web = 1;
+  httpServer.send(200, "text/plain", "UP");
+}
+
+void handleVirtualDown() {
+  *virtual_button_web = -1;
+  httpServer.send(200, "text/plain", "Down");
+}
+void handleVirtualStop() {
+  *virtual_button_web = 0;
+  httpServer.send(200, "text/plain", "Stop");
+}
+
+void handleStatus() {
+  char buffer [4];
+  //Serial.println(device_alexa->getPercent());
+  itoa(device_alexa->getPercent(), buffer, 10);
+  //String toRet = "a " + 
+  httpServer.send(200, "text/plain", buffer);
 }
 
 void handlePlain() {

@@ -60,7 +60,7 @@ void reconnect_mqtt() {
 }
 
 void networkManagement() {
-  if (!ConnectWiFi_STA(config.getWifiSsid(), config.getWifiPass())) {
+  if (!ConnectWiFi_STA(config.getWifiSsid(), config.getWifiPass(), config.getHostname())) {
     ConnectWiFi_AP();
     netConnection = false;
   } else {
@@ -113,14 +113,14 @@ void setup()
     }
   }
 
-  // Webserver stuff
-  webserver = WebServer(&config);
-
   // Alexa stuff
   if (netConnection) {
     alexaConfiguration();
     espalexa.begin();
   }
+
+  // Webserver stuff
+  webserver = WebServer(&config, &virtual_button, device);
 
   // Other stuff
   sprintf(subscribe_topic[0], "cmnd/%s/Backlog", config.getHostname());
@@ -174,9 +174,11 @@ void movementManager(int8_t updownstop) {
       timming = timming-(millis()-last_timming);
       last_timming = millis();
 
+      current_percent = config.getCurrentPosition()+(last_timming-first_timming)/milliseconds_per_percent;
+      device->setPercent(current_percent);
+      
       // HomeAssistant stuff
       if (config.homeAssistantEnabled()) {
-        current_percent = config.getCurrentPosition()+(last_timming-first_timming)/milliseconds_per_percent;
         ha.SendUpdate(current_percent, 100, 1);
       }
     
@@ -245,9 +247,11 @@ void movementManager(int8_t updownstop) {
       timming = timming-(millis()-last_timming);
       last_timming = millis();
 
+      current_percent = config.getCurrentPosition()-(last_timming-first_timming)/milliseconds_per_percent;
+      device->setPercent(current_percent);
+
       // HomeAssistant stuff
       if (config.homeAssistantEnabled()) {
-        current_percent = config.getCurrentPosition()-(last_timming-first_timming)/milliseconds_per_percent;
         ha.SendUpdate(current_percent, 0, -1);
       }
       if (timming <= 0) { // Reach the end, need to stop!
@@ -376,16 +380,16 @@ void clickManagement() {
   if (digitalRead(config.getPinButtonUp()) == LOW) { // Remind this is active at LOW
     movementManager(1);
   }
-
   // Button 2
   else if (digitalRead(config.getPinButtonDown()) == LOW) { // Remind this is active at LOW
     movementManager(-1);
-  } 
+  }
+  // Virtual buttons
   else if (virtual_button == 1) { // Enabled the virtual button up
     movementManager(1);
-  } else if (virtual_button == -1) {
+  } else if (virtual_button == -1) { // Virtual button down
     movementManager(-1);
-  } else if (already_moving_up || already_moving_down) {
+  } else if (already_moving_up || already_moving_down) { // Stop
     movementManager(0);
   }
   //debounce delay
@@ -409,7 +413,7 @@ void clickManagement() {
   
 }
 
-uint16_t loop_cnt = 0;
+uint16_t loop_cnt = 1;
 bool first_loop = true;
 void loop() 
 {
@@ -441,15 +445,30 @@ void loop()
 
   // HomeAssistant stuff
   
-  if (config.homeAssistantEnabled() && netConnection && loop_cnt==30 && first_loop) {
+  if (config.homeAssistantEnabled() && netConnection && !loop_cnt%30 && first_loop) {
     ha = HomeAssistant(&mqtt, &config);
     ha.SendDiscovery();
     ha.SendState();
     first_loop=false; 
     
   }
-  if (config.homeAssistantEnabled() && netConnection && loop_cnt == 0 && !first_loop) { //TODO Make to repeat each 5 minutes
+  if (config.homeAssistantEnabled() && netConnection && !(loop_cnt%6000) && !first_loop) { // Repeat each 5 minutes
     ha.SendState();
+  }
+  if (!(loop_cnt % 10000) && !netConnection) { // Each 500 seconds ~ 8,3 minutes
+    networkManagement();
+    // MQTT
+    if (netConnection) {
+      mqtt.setServer(config.getMQTTServer(), config.getMQTTPort());
+      mqtt.setCallback(mqtt_callback);
+    
+      if (!mqtt.connected()) {
+        reconnect_mqtt();
+      }
+      // Alexa stuff
+      alexaConfiguration();
+      espalexa.begin();
+    }
   }
   loop_cnt++;
   delay(50);
