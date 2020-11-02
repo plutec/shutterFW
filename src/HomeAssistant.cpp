@@ -180,13 +180,13 @@ void HomeAssistant::SendDiscovery() {
         this->mqtt->publish(str_topic, NULL);
     }
 
-    snprintf(str, 512, "{\"name\":\"Relay1\",\"stat_t\":\"tele/%s/STATE\",\"avty_t\":\"tele/%s/LWT\",\"pl_avail\":\"Online\",\"pl_not_avail\":\"Offline\",\"cmd_t\":\"cmnd/%s/POWER1\",\"val_tpl\":\"{{value_json.POWER1}}\",\"pl_off\":\"OFF\",\"pl_on\":\"ON\",\"uniq_id\":\"%06X_RL_1\",\"dev\":{\"ids\":[\"%06X\"]}",
+    snprintf(str, 512, "{\"name\":\"Relay1\",\"stat_t\":\"tele/%s/STATE\",\"avty_t\":\"tele/%s/LWT\",\"pl_avail\":\"Online\",\"pl_not_avail\":\"Offline\",\"cmd_t\":\"cmnd/%s/POWER1\",\"val_tpl\":\"{{value_json.POWER1}}\",\"pl_off\":\"OFF\",\"pl_on\":\"ON\",\"uniq_id\":\"%06X_RL_1\",\"dev\":{\"ids\":[\"%06X\"]}}",
         topic, topic, topic, chip_id, chip_id);
     snprintf(str_topic, 128, "homeassistant/switch/%06X_RL_1/config", chip_id);
     this->mqtt->publish(str_topic, str, true); // Retained
 
     /* SWITCH2 */
-    snprintf(str, 512, "{\"name\":\"Relay2\",\"stat_t\":\"tele/%s/STATE\",\"avty_t\":\"tele/%s/LWT\",\"pl_avail\":\"Online\",\"pl_not_avail\":\"Offline\",\"cmd_t\":\"cmnd/%s/POWER2\",\"val_tpl\":\"{{value_json.POWER2}}\",\"pl_off\":\"OFF\",\"pl_on\":\"ON\",\"uniq_id\":\"%06X_RL_2\",\"dev\":{\"ids\":[\"%06X\"]}",
+    snprintf(str, 512, "{\"name\":\"Relay2\",\"stat_t\":\"tele/%s/STATE\",\"avty_t\":\"tele/%s/LWT\",\"pl_avail\":\"Online\",\"pl_not_avail\":\"Offline\",\"cmd_t\":\"cmnd/%s/POWER2\",\"val_tpl\":\"{{value_json.POWER2}}\",\"pl_off\":\"OFF\",\"pl_on\":\"ON\",\"uniq_id\":\"%06X_RL_2\",\"dev\":{\"ids\":[\"%06X\"]}}",
         topic, topic, topic, chip_id, chip_id);
     snprintf(str_topic, 128, "homeassistant/switch/%06X_RL_2/config", chip_id);
     this->mqtt->publish(str_topic, str, true); // Retained
