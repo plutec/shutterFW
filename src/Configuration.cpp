@@ -285,8 +285,10 @@ int8_t Configuration::getCalibratedPosition(int8_t pos) {
     int8_t to_ret;
 
     if (storage.calibrated_positions) {
-        Serial.print("Calculate the calibrated value of ");
-        Serial.println(pos);
+        #ifdef DEBUG
+            Serial.print("Calculate the calibrated value of ");
+            Serial.println(pos);
+        #endif
         if (pos < 30) {
            to_ret = pos*storage.calibration[0]/30;
         } else if (pos==30) {
@@ -306,8 +308,10 @@ int8_t Configuration::getCalibratedPosition(int8_t pos) {
         } else { // (90 - 100]
             to_ret = ((float)(100-storage.calibration[3])/10)*(pos-90)+storage.calibration[3];
         }
-        Serial.print("Calibrated value is: ");
-        Serial.println(to_ret);
+        #ifdef DEBUG
+            Serial.print("Calibrated value is: ");
+            Serial.println(to_ret);
+        #endif
         return to_ret;
     }
     return pos;
