@@ -448,7 +448,7 @@ void loop()
 
   // HomeAssistant stuff
   
-  if (config.homeAssistantEnabled() && netConnection && !loop_cnt%30 && first_loop) {
+  if (config.homeAssistantEnabled() && netConnection && loop_cnt==30 && first_loop) {
     ha = HomeAssistant(&mqtt, &config);
     ha.SendDiscovery();
     ha.SendState();
@@ -479,14 +479,13 @@ void loop()
 
 void moveToPosition(uint8_t percent, uint8_t alexa_value) {
   /**
-   * percent: (0-100) where 0 is closed and 100 is totally open (calibrated)
+   * percent: (0-100) where 0 is closed and 100 is totally open (calibrated value if defined)
    * alexa_value: (0-255) where 0 is closed and 255 is totally open
    */
   #if defined(DEBUG) || defined(KINGART_Q4)
   char str[90];
   #endif
   device->setValue(alexa_value); //TODO Review, alexa_value possible don't needed 
-  //device->setPercent(percent);
   //device->setPercent(percent);
   espalexa.loop();
   #ifdef DEBUG
@@ -525,18 +524,19 @@ void moveToPosition(uint8_t percent, uint8_t alexa_value) {
       digitalWrite(config.getPinRelayUp(), LOW);
       digitalWrite(config.getPinRelayDown(), HIGH);
       // This block of code is to prevent the error in alexa like: "Device does not response"
-      uint8_t ent = diff/500;
-      uint8_t dec = diff%500;
+      uint8_t ent = diff/1000;
+      uint8_t dec = diff%1000;
       for (uint8_t i=0;i<ent;++i) {
-        delay(500);
+        delay(1000);
         espalexa.loop();
         if (config.homeAssistantEnabled()) {
-          current_percent = config.getCurrentPosition()-500*(i+1)/milliseconds_per_percent;
+          current_percent = config.getCurrentPosition()-1000*(i+1)/milliseconds_per_percent;
           ha.SendUpdate(current_percent, percent, -1);
         } 
       }
       delay(dec);
-
+      
+      // Stop the relay
       digitalWrite(config.getPinRelayDown(), LOW);
       #ifdef DEBUG
         mqtt.publish(DEBUG_TOPIC, "STOP the relay");
@@ -559,20 +559,21 @@ void moveToPosition(uint8_t percent, uint8_t alexa_value) {
       digitalWrite(config.getPinRelayDown(), LOW);
       digitalWrite(config.getPinRelayUp(), HIGH);
       // This block of code is to prevent the error in alexa like: "Device does not response"
-      uint8_t ent = diff/500;
-      uint8_t dec = diff%500;
+      uint8_t ent = diff/1000;
+      uint8_t dec = diff%1000;
       for (uint8_t i=0;i<ent;++i) {
-        delay(500);
+        delay(1000);
         espalexa.loop();
         if (config.homeAssistantEnabled()) {
-          current_percent = config.getCurrentPosition()+500*(i+1)/milliseconds_per_percent;
-          ha.SendUpdate(current_percent, percent, 1);
+          current_percent = config.getCurrentPosition()+1000*(i+1)/milliseconds_per_percent;
+          //ha.SendUpdate(current_percent, percent, 1);
         }
       }
       delay(dec);
        
       //delay(diff);
       // End of the block of alexa problem
+      // Stop the relay UP
       digitalWrite(config.getPinRelayUp(), LOW);
       #ifdef DEBUG
         mqtt.publish(DEBUG_TOPIC, "STOP the relay");
@@ -584,9 +585,7 @@ void moveToPosition(uint8_t percent, uint8_t alexa_value) {
     if (config.homeAssistantEnabled()) {
       ha.SendUpdate(percent, percent, 0);
     }
-    //device->setPercent(percent);
-    //device->setValue(alexa_value);
-    espalexa.loop();
+    //espalexa.loop();
     
   #endif
 
