@@ -1,12 +1,17 @@
+/*
+  Configuration.h - Configuration class for ShutterFW
+  Antonio Sánchez <asanchez@plutec.net>
+  https://plutec.net
+  https://github.com/plutec
+*/
 
 #include <FS.h>
-//#include <LittleFS.h>
 #include <ctype.h>
 
 #ifndef Configuration_h
 #define Configuration_h
 
-#define VERSION_FW "0.5(shutterFW)"
+#define VERSION_FW "0.6(shutterFW)"
 
 struct storage_struct{ 
   bool new_values = false;
@@ -35,6 +40,9 @@ struct storage_struct{
   // HomeAssistant
   bool ha_enabled = false;
   char mqttTopic[32] = "";
+  // Real positions
+  bool calibrated_positions = false;
+  uint8_t calibration[4]; //30%, 50%, 70%, 90%
 };
 
 
@@ -94,6 +102,13 @@ class Configuration {
         void setMqttTopic(const char *topic);
         char* getMqttTopic();
         
+        // Calibration
+        void setCalibrationEnabled(bool stat) { storage.calibrated_positions = stat; storage.new_values = true;}
+        void setCalibration(uint8_t index, uint8_t value) { storage.calibration[index] = value; storage.new_values = true; }
+        char* calibrationEnabledChecked() { if (storage.calibrated_positions) { return "checked";} return ""; } // I know this is not correct, but it's a microcontroller and the memory is very limited :(
+        uint8_t getCalibration(uint8_t index) { return storage.calibration[index]; }
+        int8_t getCalibratedPosition(int8_t pos);
+
         // loop
         void loop();
 };

@@ -12,7 +12,7 @@
 void mqtt_callback(char* topic, byte* payload, unsigned int length);
 
 //ALEXA CALLBACK
-void percentBlind(uint8_t value);
+void percentOpening(uint8_t value);
 
 void moveToPosition(uint8_t percent, uint8_t alexa_value);
 
@@ -78,7 +78,7 @@ void pinConfiguration() {
 }
 
 void alexaConfiguration() {
-  device = new EspalexaDevice(config.getAlexaName(), percentBlind);
+  device = new EspalexaDevice(config.getAlexaName(), percentOpening);
   espalexa.addDevice(device); //and then add it
   #if defined(OTHER_BOARD)
   device->setPercent(config.getCurrentPosition()); //this allows you to e.g. update their state value at any time!
@@ -476,13 +476,14 @@ void loop()
 
 void moveToPosition(uint8_t percent, uint8_t alexa_value) {
   /**
-   * percent: (0-100) where 0 is closed and 100 is totally open
+   * percent: (0-100) where 0 is closed and 100 is totally open (calibrated)
    * alexa_value: (0-255) where 0 is closed and 255 is totally open
    */
   #if defined(DEBUG) || defined(KINGART_Q4)
   char str[90];
   #endif
-  device->setValue(alexa_value);
+  device->setValue(alexa_value); //TODO Review, alexa_value possible don't needed 
+  //device->setPercent(percent);
   espalexa.loop();
   #ifdef DEBUG
     sprintf(str, "Value going to change to percent %u; alexa_value = %u", percent, alexa_value);
@@ -599,12 +600,13 @@ void mqtt_callback(char* topic, byte* payload, unsigned int length) {
   if (topic_str.endsWith("ShutterPosition1")) {
     uint8_t percent = messageTemp.toInt();
     uint8_t alexa_value = (percent * 255)/100;
+    percent = config.getCalibratedPosition(percent);
     moveToPosition(percent, alexa_value);
   }
 }
 
 // Alexa callback
-void percentBlind(uint8_t value) {
+void percentOpening(uint8_t value) {
   #ifdef DEBUG
   char str[80];
   sprintf(str, "Move the AlexaCallback to value %u", value);
@@ -612,6 +614,6 @@ void percentBlind(uint8_t value) {
   #endif
   //0 for alexa is 0 for me, 255 for alexa is 100 for me
   uint8_t percent = (value*100)/255; //100=open; 0=close
-
+  percent = config.getCalibratedPosition(percent);
   moveToPosition(percent, value);
 }

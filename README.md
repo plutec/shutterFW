@@ -28,7 +28,7 @@ Now, the timming to up/down the blind are configured. Remind that this behaviour
 In the configuration webpage, there is an integer that must configured with the time the shutter take to down or up (the maximum of both). This time will be use to calculate the percentages of open with Alexa and HomeAssistant.
 
 # Compilation
-Modify the config.h, change your board information and compile it using platform.io.
+Using platform.io, you can select between diferent environments: **kingart** or **other** boards.
 
 # First flash
 ## KingArt Q4
@@ -84,6 +84,6 @@ After that, click on "See HomeAssistant configuration" link and put those config
 - [X] Integration with HomeAssistant
 - [X] Remove all the content and the file config.h. Make it dynamic and configurable in web interface.
 - [X] Code clean (hehe)
+- [X] Control the device from the management webpage
+- [X] Set different levels of open (for instance: 30%, 50%, 70%, 90%)
 - [ ] Add mDNS (Not yet)
-- [ ] Set different levels of open (for instance: 20%, 40%, 50%, 70%)
-- [ ] Control the device from the management webpage

@@ -117,6 +117,17 @@ void handleRoot() {
       WiFi Password: <input type=\"password\" name=\"wifi_pass\" value=\"\"><br>\
       <input type=\"submit\" value=\"Change Wifi information\">\
     </form>";
+    postForms += "<h1>Calibration</h1><br/>\
+    <form method=\"post\" action=\"/p\">\
+    <input type=\"text\" name=\"c_0\" size=\"2\" value=\""+String(configuration->getCalibration(0))+"\">\
+    <input type=\"text\" name=\"c_1\" size=\"2\" value=\""+String(configuration->getCalibration(1))+"\">\
+    <input type=\"text\" name=\"c_2\" size=\"2\" value=\""+String(configuration->getCalibration(2))+"\">\
+    <input type=\"text\" name=\"c_3\" size=\"2\" value=\""+String(configuration->getCalibration(3))+"\"><br/>\
+    30%&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;50%&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;70%&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;90%<br/>\
+    <input type=\"hidden\" name=\"calibration_enable\" value=\"off\">\
+    Enable calibration: <input type=\"checkbox\" name=\"calibration_enable\" "+String(configuration->calibrationEnabledChecked())+"><br>\
+    <input type=\"submit\" value=\"Save calibration\">\
+    </form>";
     #ifdef OTHER_BOARD
     postForms += "<h1>Pinout (be careful!)</h1><br>\
     <form method=\"post\" enctype=\"application/x-www-form-urlencoded\" action=\"/p\">\
@@ -288,10 +299,29 @@ void handleForm() {
       if (httpServer.argName(i) == "mqtt_topic") {
         configuration->setMqttTopic(httpServer.arg(i).c_str());
       }
+      if (httpServer.argName(i) == "c_0") {
+        configuration->setCalibration(0, httpServer.arg(i).toInt());
+      }
+      if (httpServer.argName(i) == "c_1") {
+        configuration->setCalibration(1, httpServer.arg(i).toInt());
+      }
+      if (httpServer.argName(i) == "c_2") {
+        configuration->setCalibration(2, httpServer.arg(i).toInt());
+      }
+      if (httpServer.argName(i) == "c_3") {
+        configuration->setCalibration(3, httpServer.arg(i).toInt());
+      }
+      if (httpServer.argName(i) == "calibration_enable") {
+        if (httpServer.arg(i) == "on") {
+          configuration->setCalibrationEnabled(true);
+        } else {
+          configuration->setCalibrationEnabled(false);
+        }
+      }
     }
     #ifdef DEBUG
     httpServer.send(200, "text/plain", message);
-    #else 
+    #else
     httpServer.send(200, "text/html", "<META http-equiv=\"refresh\" content=\"0;URL=/\">");
     #endif
   }

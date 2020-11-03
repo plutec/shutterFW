@@ -1,3 +1,9 @@
+/*
+  Configuration.cpp - Configuration class for ShutterFW
+  Antonio Sánchez <asanchez@plutec.net>
+  https://plutec.net
+  https://github.com/plutec
+*/
 
 #include "Configuration.h"
 
@@ -9,8 +15,7 @@ Configuration::Configuration() {
 
 // eeprom management
 void Configuration::save_eeprom_data() {
-  if (storage.new_values == true) {
-      //Serial.println("Hay nuevos valores");
+  if (storage.new_values == true) {      
     storage.new_values = false;
     File fd = SPIFFS.open("/conf.txt", "w");
     if (fd) {
@@ -273,4 +278,37 @@ char* Configuration::getMqttTopic() {
         sprintf(storage.mqttTopic, "shutterfw_%06X", (uint32_t)ESP.getChipId());
     }
     return storage.mqttTopic;
+}
+
+int8_t Configuration::getCalibratedPosition(int8_t pos) {
+    //Ask for the offset position, and the shutter needs the real. If user wants the shutter at 50%, we need to supply 65, for instance.
+    int8_t to_ret;
+
+    if (storage.calibrated_positions) {
+        Serial.print("Calculate the calibrated value of ");
+        Serial.println(pos);
+        if (pos < 30) {
+           to_ret = pos*storage.calibration[0]/30;
+        } else if (pos==30) {
+            to_ret = storage.calibration[0];
+        } else if (pos<50) { // (30-50)
+            to_ret = ((float)(storage.calibration[1]-storage.calibration[0])/20)*(pos-30)+storage.calibration[0];
+        } else if (pos==50) {
+            to_ret = storage.calibration[1];
+        } else if (pos<70) { // (50-70)
+            to_ret = ((float)(storage.calibration[2]-storage.calibration[1])/20)*(pos-50)+storage.calibration[1];
+        } else if (pos==70) {
+            to_ret = storage.calibration[2];
+        } else if (pos<90) { // (70-90)
+            to_ret = ((float)(storage.calibration[3]-storage.calibration[2])/20)*(pos-70)+storage.calibration[2];
+        } else if (pos==90) {
+            to_ret = storage.calibration[3];
+        } else { // (90 - 100]
+            to_ret = ((float)(100-storage.calibration[3])/10)*(pos-90)+storage.calibration[3];
+        }
+        Serial.print("Calibrated value is: ");
+        Serial.println(to_ret);
+        return to_ret;
+    }
+    return pos;
 }
