@@ -147,7 +147,7 @@ void handleRoot() {
     var request = new XMLHttpRequest();\
     request.open('GET', '/up', true);\
     request.send();\
-    myVar = setInterval(stat, 1100);\
+    myVar = setInterval(stat, 500);\
   };\
   document.getElementById('s').onclick=function(){\
     var request = new XMLHttpRequest();\
@@ -159,7 +159,7 @@ void handleRoot() {
     var request = new XMLHttpRequest();\
     request.open('GET', '/down', true);\
     request.send();\
-    myVar = setInterval(stat, 1100);\
+    myVar = setInterval(stat, 500);\
   };\
   function stat(){\
     console.log(\"Stat\");\
@@ -220,11 +220,11 @@ void handleVirtualUp() {
 
 void handleVirtualDown() {
   *virtual_button_web = -1;
-  httpServer.send(200, "text/plain", "Down");
+  httpServer.send(200, "text/plain", "DOWN");
 }
 void handleVirtualStop() {
-  *virtual_button_web = 0;
-  httpServer.send(200, "text/plain", "Stop");
+  *virtual_button_web = 2;
+  httpServer.send(200, "text/plain", "STOP");
 }
 
 void handleStatus() {

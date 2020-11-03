@@ -102,7 +102,7 @@ void setup()
   pinConfiguration();
 
   networkManagement();
-  
+
   // MQTT
   if (netConnection) {
     mqtt.setServer(config.getMQTTServer(), config.getMQTTPort());
@@ -435,6 +435,9 @@ void loop()
   #else
   clickManagement();
   #endif
+
+  //Serial.print("netConnection ");
+  //Serial.println(netConnection);
   // Alexa
   if (netConnection) {
     espalexa.loop();
@@ -484,6 +487,7 @@ void moveToPosition(uint8_t percent, uint8_t alexa_value) {
   #endif
   device->setValue(alexa_value); //TODO Review, alexa_value possible don't needed 
   //device->setPercent(percent);
+  //device->setPercent(percent);
   espalexa.loop();
   #ifdef DEBUG
     sprintf(str, "Value going to change to percent %u; alexa_value = %u", percent, alexa_value);
@@ -501,75 +505,89 @@ void moveToPosition(uint8_t percent, uint8_t alexa_value) {
     //percent = 100-percent;
     if (config.getCurrentPosition() == percent) { //In the requested position
       //Do nothing
+      #ifdef DEBUG
+      mqtt.publish(DEBUG_TOPIC, "In the requested position");
+      delay(50);
+      #endif
     } else if (config.getCurrentPosition() > percent) { // We need to close
       #ifdef DEBUG
-        mqtt.publish(DEBUG_TOPIC, "Close...");
+        mqtt.publish(DEBUG_TOPIC, "Closing...");
         delay(50);
       #endif
       //RELAY1 OFF, RELAY2 ON
       unsigned long diff = (config.getCurrentPosition() - percent)*milliseconds_per_percent;
-      //sprintf(str, "El tiempo es de... %lu", diff);
-      //mqtt.publish(DEBUG_TOPIC, str);
-        delay(50);
+      #ifdef DEBUG
+        sprintf(str, "Taking time is: %lu", diff);
+        mqtt.publish(DEBUG_TOPIC, str);
+      #endif
+      delay(50);
       // First, assure RELAY-UP is stopped
       digitalWrite(config.getPinRelayUp(), LOW);
       digitalWrite(config.getPinRelayDown(), HIGH);
       // This block of code is to prevent the error in alexa like: "Device does not response"
-      uint8_t ent = diff/1000;
-      uint8_t dec = diff%1000;
+      uint8_t ent = diff/500;
+      uint8_t dec = diff%500;
       for (uint8_t i=0;i<ent;++i) {
-        delay(1000);
+        delay(500);
         espalexa.loop();
         if (config.homeAssistantEnabled()) {
-          current_percent = config.getCurrentPosition()-1000*(i+1)/milliseconds_per_percent;
+          current_percent = config.getCurrentPosition()-500*(i+1)/milliseconds_per_percent;
           ha.SendUpdate(current_percent, percent, -1);
         } 
       }
       delay(dec);
-      espalexa.loop();
 
       digitalWrite(config.getPinRelayDown(), LOW);
-      /*digitalWrite(LED, LOW);
-      delayMicroseconds(diff);
-      digitalWrite(LED, HIGH);*/
+      #ifdef DEBUG
+        mqtt.publish(DEBUG_TOPIC, "STOP the relay");
+        delay(50);
+      #endif
+      
     } else if (config.getCurrentPosition() < percent) { // We need to open
       #ifdef DEBUG
-        mqtt.publish(DEBUG_TOPIC, "Open...");
+        mqtt.publish(DEBUG_TOPIC, "Opening...");
         delay(50);
       #endif
       //RELAY1 ON, RELAY2 OFF
       unsigned long diff = (percent-config.getCurrentPosition())*milliseconds_per_percent;
       #ifdef DEBUG
-      sprintf(str, "The time is... %lu", diff);
-      mqtt.publish(DEBUG_TOPIC, str);
-      delay(50);
+        sprintf(str, "Taking time is: %lu", diff);
+        mqtt.publish(DEBUG_TOPIC, str);
+        delay(50);
       #endif
       // First, assure RELAY2 is stopped
       digitalWrite(config.getPinRelayDown(), LOW);
       digitalWrite(config.getPinRelayUp(), HIGH);
       // This block of code is to prevent the error in alexa like: "Device does not response"
-      uint8_t ent = diff/1000;
-      uint8_t dec = diff%1000;
+      uint8_t ent = diff/500;
+      uint8_t dec = diff%500;
       for (uint8_t i=0;i<ent;++i) {
-        delay(1000);
+        delay(500);
         espalexa.loop();
         if (config.homeAssistantEnabled()) {
-          current_percent = config.getCurrentPosition()+1000*(i+1)/milliseconds_per_percent;
+          current_percent = config.getCurrentPosition()+500*(i+1)/milliseconds_per_percent;
           ha.SendUpdate(current_percent, percent, 1);
         }
       }
       delay(dec);
-      espalexa.loop();
        
       //delay(diff);
       // End of the block of alexa problem
       digitalWrite(config.getPinRelayUp(), LOW);
+      #ifdef DEBUG
+        mqtt.publish(DEBUG_TOPIC, "STOP the relay");
+        delay(50);
+      #endif
+
     }
     config.setCurrentPosition(percent);
     if (config.homeAssistantEnabled()) {
       ha.SendUpdate(percent, percent, 0);
-    } 
+    }
     //device->setPercent(percent);
+    //device->setValue(alexa_value);
+    espalexa.loop();
+    
   #endif
 
 }
