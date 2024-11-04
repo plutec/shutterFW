@@ -21,18 +21,15 @@ HomeAssistant::HomeAssistant(PubSubClient* mqtt, Configuration* config) {
     this->chip_id = (uint32_t)ESP.getChipId();
 };
 
-String HomeAssistant::GenerateConfig() {
+String HomeAssistant::GenerateConfig() { //NOT USED, check WebServer.cpp
     String topic = String(config->getMqttTopic());
 
     String to_ret="\
 cover:\n\
-  - platform: mqtt\n\
-    name: \""+String(config->getHostname())+"\"\n\
+  - name: \""+String(config->getHostname())+"\"\n\
     availability_topic: \"tele/"+topic+"/LWT\"\n\
-    payload_available: \"Online\"\n\
-    payload_not_available: \"Offline\"\n\
     position_topic: \"stat/"+topic+"/RESULT\"\n\
-    value_template: >\n\
+    position_template: >\n\
       {% if ('Shutter1' in value_json) and ('Position' in value_json.Shutter1) %}\n\
         {{ value_json.Shutter1.Position }}\n\
       {% else %}\n\
@@ -42,16 +39,8 @@ cover:\n\
           {{ state_attr('cover."+topic+"','current_position') }}\n\
         {% endif %}\n\
       {% endif %}\n\
-    position_open: 100\n\
-    position_closed: 0\n\
     set_position_topic: \"cmnd/"+topic+"/ShutterPosition1\"\n\
-    command_topic: \"cmnd/"+topic+"/Backlog\"\n\
-    payload_open: \"ShutterOpen1\"\n\
-    payload_close: \"ShutterClose1\"\n\
-    payload_stop: \"ShutterStop1\"\n\
-    retain: false\n\
-    optimistic: false\n\
-    qos: 1";
+    command_topic: \"cmnd/"+topic+"/Backlog\"";
 
     return to_ret;
 }
@@ -70,7 +59,7 @@ void HomeAssistant::SendState() {
 
     // tele/persiana_inventada1/LWT Online
     snprintf(str_topic, 128, "tele/%s/LWT", topic);
-    this->mqtt->publish(str_topic, "Online", true); //Retained
+    this->mqtt->publish(str_topic, "online", true); //Retained
 
     // cmnd/persiana_inventada1/POWER (null)
     snprintf(str_topic, 128, "cmnd/%s/POWER", topic);
@@ -180,18 +169,18 @@ void HomeAssistant::SendDiscovery() {
         this->mqtt->publish(str_topic, NULL);
     }
 
-    snprintf(str, 512, "{\"name\":\"Relay1\",\"stat_t\":\"tele/%s/STATE\",\"avty_t\":\"tele/%s/LWT\",\"pl_avail\":\"Online\",\"pl_not_avail\":\"Offline\",\"cmd_t\":\"cmnd/%s/POWER1\",\"val_tpl\":\"{{value_json.POWER1}}\",\"pl_off\":\"OFF\",\"pl_on\":\"ON\",\"uniq_id\":\"%06X_RL_1\",\"dev\":{\"ids\":[\"%06X\"]}}",
+    snprintf(str, 512, "{\"name\":\"Relay1\",\"stat_t\":\"tele/%s/STATE\",\"avty_t\":\"tele/%s/LWT\",\"pl_avail\":\"online\",\"pl_not_avail\":\"offline\",\"cmd_t\":\"cmnd/%s/POWER1\",\"val_tpl\":\"{{value_json.POWER1}}\",\"pl_off\":\"OFF\",\"pl_on\":\"ON\",\"uniq_id\":\"%06X_RL_1\",\"dev\":{\"ids\":[\"%06X\"]}}",
         topic, topic, topic, chip_id, chip_id);
     snprintf(str_topic, 128, "homeassistant/switch/%06X_RL_1/config", chip_id);
     this->mqtt->publish(str_topic, str, true); // Retained
 
     /* SWITCH2 */
-    snprintf(str, 512, "{\"name\":\"Relay2\",\"stat_t\":\"tele/%s/STATE\",\"avty_t\":\"tele/%s/LWT\",\"pl_avail\":\"Online\",\"pl_not_avail\":\"Offline\",\"cmd_t\":\"cmnd/%s/POWER2\",\"val_tpl\":\"{{value_json.POWER2}}\",\"pl_off\":\"OFF\",\"pl_on\":\"ON\",\"uniq_id\":\"%06X_RL_2\",\"dev\":{\"ids\":[\"%06X\"]}}",
+    snprintf(str, 512, "{\"name\":\"Relay2\",\"stat_t\":\"tele/%s/STATE\",\"avty_t\":\"tele/%s/LWT\",\"pl_avail\":\"online\",\"pl_not_avail\":\"offline\",\"cmd_t\":\"cmnd/%s/POWER2\",\"val_tpl\":\"{{value_json.POWER2}}\",\"pl_off\":\"OFF\",\"pl_on\":\"ON\",\"uniq_id\":\"%06X_RL_2\",\"dev\":{\"ids\":[\"%06X\"]}}",
         topic, topic, topic, chip_id, chip_id);
     snprintf(str_topic, 128, "homeassistant/switch/%06X_RL_2/config", chip_id);
     this->mqtt->publish(str_topic, str, true); // Retained
         
-    snprintf(str, 512, "{\"name\":\"%s status\",\"stat_t\":\"tele/%s/HASS_STATE\",\"avty_t\":\"tele/%s/LWT\",\"pl_avail\":\"Online\",\"pl_not_avail\":\"Offline\",\"json_attr_t\":\"tele/%s/HASS_STATE\",\"unit_of_meas\":\"%%\",\"val_tpl\":\"{{value_json['RSSI']}}\",\"ic\":\"mdi:information-outline\",\"uniq_id\":\"%06X_status\",\"dev\":{\"ids\":[\"%06X\"],\"name\":\"%s\",\"mdl\":\"%s\",\"sw\":\"%s\",\"mf\":\"ShutterFW\"}}",
+    snprintf(str, 512, "{\"name\":\"%s status\",\"stat_t\":\"tele/%s/HASS_STATE\",\"avty_t\":\"tele/%s/LWT\",\"pl_avail\":\"online\",\"pl_not_avail\":\"offline\",\"json_attr_t\":\"tele/%s/HASS_STATE\",\"unit_of_meas\":\"%%\",\"val_tpl\":\"{{value_json['RSSI']}}\",\"ic\":\"mdi:information-outline\",\"uniq_id\":\"%06X_status\",\"dev\":{\"ids\":[\"%06X\"],\"name\":\"%s\",\"mdl\":\"%s\",\"sw\":\"%s\",\"mf\":\"ShutterFW\"}}",
         topic, topic, topic, topic, chip_id, chip_id, topic, hardware, VERSION_FW);
     snprintf(str_topic, 128, "homeassistant/sensor/%06X_status/config", chip_id);
     this->mqtt->publish(str_topic, str, true); // Retained

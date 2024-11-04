@@ -184,13 +184,10 @@ void handleHAConfig() {
 
     String config="\
 cover:\n\
-  - platform: mqtt\n\
-    name: \"Persiana Invitados\"\n\
+  - name: \""+String(configuration->getHostname())+"\"\n\
     availability_topic: \"tele/"+topic+"/LWT\"\n\
-    payload_available: \"Online\"\n\
-    payload_not_available: \"Offline\"\n\
     position_topic: \"stat/"+topic+"/RESULT\"\n\
-    value_template: >\n\
+    position_template: >\n\
       {% if ('Shutter1' in value_json) and ('Position' in value_json.Shutter1) %}\n\
         {{ value_json.Shutter1.Position }}\n\
       {% else %}\n\
@@ -200,16 +197,8 @@ cover:\n\
           {{ state_attr('cover."+topic+"','current_position') }}\n\
         {% endif %}\n\
       {% endif %}\n\
-    position_open: 100\n\
-    position_closed: 0\n\
     set_position_topic: \"cmnd/"+topic+"/ShutterPosition1\"\n\
-    command_topic: \"cmnd/"+topic+"/Backlog\"\n\
-    payload_open: \"ShutterOpen1\"\n\
-    payload_close: \"ShutterClose1\"\n\
-    payload_stop: \"ShutterStop1\"\n\
-    retain: false\n\
-    optimistic: false\n\
-    qos: 1";
+    command_topic: \"cmnd/"+topic+"/Backlog\"";
 httpServer.send(200, "text/plain", config);
 }
 

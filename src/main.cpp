@@ -123,8 +123,8 @@ void setup()
   webserver = WebServer(&config, &virtual_button, device);
 
   // Other stuff
-  sprintf(subscribe_topic[0], "cmnd/%s/Backlog", config.getHostname());
-  sprintf(subscribe_topic[1], "cmnd/%s/ShutterPosition1", config.getHostname());
+  sprintf(subscribe_topic[0], "cmnd/%s/Backlog", config.getMqttTopic());
+  sprintf(subscribe_topic[1], "cmnd/%s/ShutterPosition1", config.getMqttTopic());
 }
 
 #if defined(OTHER_BOARD)
@@ -605,16 +605,16 @@ void mqtt_callback(char* topic, byte* payload, unsigned int length) {
   mqtt.publish(DEBUG_TOPIC, messageTemp.c_str());
   delay(50);
   #endif
-  if (messageTemp == "ShutterOpen1") {
+  if (messageTemp == "OPEN") { //OPEN (default value by HA) //ShutterOpen1
     virtual_button = 1;
   }
-  if (messageTemp == "ShutterStop1") {
+  if (messageTemp == "STOP") { //STOP (default value by HA) //ShutterStop1
     virtual_button = 2;
   }
-  if (messageTemp == "ShutterClose1") {
+  if (messageTemp == "CLOSE") { //CLOSE (default value by HA) //ShutterClose1
     virtual_button = -1;
   }
-  if (topic_str.endsWith("ShutterPosition1")) {
+  if (topic_str.endsWith("ShutterPosition1")) { //
     uint8_t percent = messageTemp.toInt();
     uint8_t alexa_value = (percent * 255)/100;
     percent = config.getCalibratedPosition(percent);
